@@ -1,0 +1,58 @@
+<?xml version="1.1" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:cl="http://tomatosystem.co.kr/cleopatra" xmlns:std="http://tomatosystem.co.kr/cleopatra/studio" std:sid="html-72d23bc5" version="1.0.5980">
+  <head std:sid="head-971f84a3">
+    <screen std:sid="screen-6d59b00c" id="default" name="default" width="1024px" height="768px"/>
+    <screen std:sid="screen-e55865ad" id="tablet" name="tablet" width="500px" height="667px"/>
+    <screen std:sid="screen-76ae493a" id="mobile" name="mobile" width="350px" height="525px"/>
+    <cl:model std:sid="model-c2f6fbbc">
+      <cl:dataset std:sid="d-set-93de1f2f" id="dsOrder">
+        <cl:datacolumnlist>
+          <cl:datacolumn std:sid="d-column-65789689" name="reqDate"/>
+          <cl:datacolumn std:sid="d-column-a4059322" name="clientName"/>
+          <cl:datacolumn std:sid="d-column-e9923d86" name="itemName"/>
+          <cl:datacolumn std:sid="d-column-197cea58" name="orderCount"/>
+          <cl:datacolumn std:sid="d-column-385fa9bc" name="food"/>
+        </cl:datacolumnlist>
+      </cl:dataset>
+    </cl:model>
+    <cl:appspec/>
+  </head>
+  <body std:sid="body-6cef423b">
+    <cl:button std:sid="button-6c1089be" value="Button">
+      <cl:listener std:sid="listener-8405f1d8" name="click" handler="onBtnSmartGridFillClick"/>
+      <cl:xylayoutdata std:sid="xyl-data-c6c2f231" top="38px" left="685px" width="144px" height="40px" horizontalAnchor="LEFT" verticalAnchor="TOP"/>
+    </cl:button>
+    <cl:textarea std:sid="t-area-79dfc464" id="txaUserInput" value="영업팀입니다. 다음 주 수요일까지 카카오엔터프라이즈 측에 최신형 서버 랙 15대 발주 처리 부탁드립니다. 빠른 처리 요망.">
+      <cl:xylayoutdata std:sid="xyl-data-5c909f9e" top="10px" left="10px" width="553px" height="137px" horizontalAnchor="LEFT" verticalAnchor="TOP"/>
+    </cl:textarea>
+    <cl:grid std:sid="grid-0eebb732" id="grd1" datasetid="dsOrder">
+      <cl:xylayoutdata std:sid="xyl-data-a4bdcc54" top="194px" left="20px" width="860px" height="328px" horizontalAnchor="LEFT" verticalAnchor="TOP"/>
+      <cl:gridcolumn std:sid="g-column-e3dfacf8"/>
+      <cl:gridcolumn std:sid="g-column-c391542d"/>
+      <cl:gridcolumn std:sid="g-column-01198e95"/>
+      <cl:gridcolumn std:sid="g-column-25f7e859"/>
+      <cl:gridcolumn std:sid="g-column-a2ccb548"/>
+      <cl:gridheader std:sid="gh-band-0a459726">
+        <cl:gridrow std:sid="g-row-b548b753" height="24px"/>
+        <cl:gridcell std:sid="gh-cell-af16bb7b" rowindex="0" colindex="0" targetcolumnname="reqDate" sortable="false" filterable="false" text="reqDate"/>
+        <cl:gridcell std:sid="gh-cell-4b3ce6ed" rowindex="0" colindex="1" targetcolumnname="clientName" sortable="false" filterable="false" text="clientName"/>
+        <cl:gridcell std:sid="gh-cell-260a1adc" rowindex="0" colindex="2" targetcolumnname="itemName" sortable="false" filterable="false" text="itemName"/>
+        <cl:gridcell std:sid="gh-cell-cdc7e65b" rowindex="0" colindex="3" targetcolumnname="orderCount" sortable="false" filterable="false" text="orderCount"/>
+        <cl:gridcell std:sid="gh-cell-c2f3d375" rowindex="0" colindex="4" targetcolumnname="food" sortable="false" filterable="false" text="food"/>
+      </cl:gridheader>
+      <cl:griddetail std:sid="gd-band-df900e2e">
+        <cl:gridrow std:sid="g-row-718968b4" height="24px"/>
+        <cl:gridcell std:sid="gd-cell-1e901d4d" rowindex="0" colindex="0" columnname="reqDate"/>
+        <cl:gridcell std:sid="gd-cell-b84d0360" rowindex="0" colindex="1" columnname="clientName"/>
+        <cl:gridcell std:sid="gd-cell-d3978978" rowindex="0" colindex="2" columnname="itemName"/>
+        <cl:gridcell std:sid="gd-cell-a3c7884b" rowindex="0" colindex="3" columnname="orderCount"/>
+        <cl:gridcell std:sid="gd-cell-da9cd860" rowindex="0" colindex="4" columnname="food"/>
+      </cl:griddetail>
+    </cl:grid>
+    <cl:xylayout std:sid="xylayout-3d04f326"/>
+  </body>
+  <std:studiosetting>
+    <std:hruler/>
+    <std:vruler/>
+  </std:studiosetting>
+</html>

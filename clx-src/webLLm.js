@@ -1,0 +1,121 @@
+/************************************************
+ * webLLm.js
+ * Created at 2026. 3. 26. 오전 10:42:39.
+ *
+ * @author 서현
+ ************************************************/
+
+/*
+ * 🚀 Grid + DataSet 최종판 (On-Device 로컬 AI 버전)
+ * 외부 서버(Gemini 등) 통신 없이 브라우저 내장 GPU(WebGPU)를 활용하여 데이터 추출
+ */
+function onBtnSmartGridFillClick(e) {
+
+    var rawText = app.lookup("txaUserInput").value; 
+    if (!rawText) return alert("추가할 데이터를 텍스트로 입력해주세요.");
+
+    var grid = app.lookup("grd1");
+    var dataSet = grid.dataSet; 
+    var headers = dataSet.getHeaders(); 
+    
+    var today = new Date();
+    var todayStr = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, '0') + "-" + String(today.getDate()).padStart(2, '0');
+    
+    var columnNames = []; 
+    var expectedJsonFormat = {};
+    
+    // 1. 동적 컬럼 정보 수집 및 JSON 예시 형태 구성
+    for(var i = 0; i < headers.length; i++) {
+        var colId = headers[i].getName(); 
+        columnNames.push(colId);
+        expectedJsonFormat[colId] = "추출된_값"; // 예시 포맷 생성
+    }
+
+    // 🌟 WebLLM 라이브러리 동적 로드 (esm.sh 대체제인 esm.run 사용)
+    import("https://esm.run/@mlc-ai/web-llm").then(async function(webllm) {
+        
+        console.log("로컬 AI 엔진 초기화 중... (최초 실행 시 모델 다운로드로 시간이 걸릴 수 있습니다.)");
+        
+        // 로딩 상태를 콘솔이나 화면에 보여주기 위한 콜백
+        const initProgressCallback = (initProgress) => {
+            console.log("AI 로딩 상태:", initProgress.text);
+            // TODO: 필요시 app.lookup("optStatus").value = initProgress.text; 로 화면 출력
+        };
+
+        // 가볍고 똑똑한 로컬 모델 선택 (Llama 3 8B 모델)
+        const selectedModel = "Llama-3-8B-Instruct-q4f32_1-MLC";
+        
+        // 엔진 생성 (브라우저 GPU 사용)
+        const engine = await webllm.CreateMLCEngine(selectedModel, { initProgressCallback });
+
+        // 🚀 [보완된 시스템 프롬프트] 명확한 역할과 JSON 예시 제공
+        var systemPrompt = "당신은 데이터 추출 전문가입니다. 사용자의 텍스트를 분석하여 반드시 아래 조건에 맞는 JSON 배열(Array) 형태로만 응답하세요.\n\n" + 
+        "🔥 [데이터 추출의 엄격한 3대 원칙] 🔥\n" +
+        "1. 다건(Row) 물리적 복제: 텍스트에 'N건', 'N개' 등 수량이 명시되어 있다면, 반드시 해당 데이터를 N번 복제하여 배열 내에 N개의 독립된 객체(Row)로 생성하세요. (예: '짜장면 3개' -> 똑같은 짜장면 데이터 객체 3개 생성)\n" +
+        "2. 유추 및 생성 금지: 명시되지 않은 품목은 절대 지어내지 마세요.\n" +
+        "3. 빈 값 처리: 찾을 수 없는 속성은 null로 처리하세요.\n" +
+        "4. 날짜 기준: 오늘 날짜는 [" + todayStr + "] 입니다. '오늘', '내일' 등의 단어는 YYYY-MM-DD 형식으로 변환하세요.\n\n" +
+        "출력은 반드시 다음 JSON 배열 형태를 따라야 합니다:\n" +
+        "[" + JSON.stringify(expectedJsonFormat) + "]";
+
+        console.log("로컬 AI 다건(Row 복제) 분석 시작...");
+        
+        // 채팅 API 호출 (OpenAI API 형식과 100% 동일)
+        const reply = await engine.chat.completions.create({
+            messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: rawText }
+            ],
+            // 모델에게 JSON 형태로만 대답하도록 강제 (지원되는 모델에 한함)
+            response_format: { type: "json_object" },
+            temperature: 0.1, // 창의성 낮춤 (정확도 우선)
+        });
+
+        // 결과 파싱
+        var responseText = reply.choices[0].message.content;
+        
+        // 마크다운 백틱(```json)이 섞여 나올 경우를 대비한 안전한 파싱 처리
+        var cleanJsonStr = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
+        var extractedArray = JSON.parse(cleanJsonStr);
+        
+        // 배열이 아닌 단일 객체로 나왔을 경우 배열로 감싸기 방어 로직
+        if (!Array.isArray(extractedArray)) {
+            extractedArray = [extractedArray];
+        }
+
+        console.log("✅ 로컬 AI 추출 완료 (총 " + extractedArray.length + "건):", extractedArray);
+        
+        // --- 💡 [보완] 코드 변환 로직 (AI가 아닌 JS에서 처리하여 안정성 확보) ---
+        var codeDictionaries = {
+            "deptCode": { "영업팀": "DEPT_001", "인사팀": "DEPT_002", "IT팀": "DEPT_003" },
+            "bankCode": { "국민은행": "KB_04", "신한은행": "SH_05", "우리은행": "WR_06" }
+        };
+
+        var insertIdx = grid.getSelectedRowIndex();
+        
+        for(var j = 0; j < extractedArray.length; j++) {
+            var rowData = extractedArray[j];
+            
+            // 데이터 삽입 전, 추출된 한글을 매핑 코드로 치환
+            for (var key in codeDictionaries) {
+                if (rowData[key] && codeDictionaries[key][rowData[key]]) {
+                    rowData[key] = codeDictionaries[key][rowData[key]];
+                }
+            }
+            
+            if (insertIdx === -1) {
+                dataSet.addRowData(rowData);
+            } else {
+                grid.insertRowData(insertIdx + 1, false, rowData);
+                insertIdx++; 
+            }
+        }
+        
+        app.getContainer().redraw();
+        alert(extractedArray.length + "건의 행(Row)이 로컬 AI를 통해 성공적으로 추가되었습니다!");
+
+    }).catch(function(error) {
+        console.error("로컬 AI 연동 오류:", error);
+        alert("처리 중 오류가 발생했습니다. 브라우저가 WebGPU를 지원하는지 확인해주세요.");
+    });
+}
