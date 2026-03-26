@@ -50,8 +50,8 @@
         <cl:gridcell std:sid="gd-cell-da9cd860" rowindex="0" colindex="4" columnname="food"/>
       </cl:griddetail>
     </cl:grid>
-    <cl:output std:sid="output-d8f55b37" id="optLog" value="Output">
-      <cl:xylayoutdata std:sid="xyl-data-52fe1ab6" top="562px" left="20px" width="873px" height="535px" horizontalAnchor="LEFT" verticalAnchor="TOP"/>
+    <cl:output std:sid="output-d8f55b37" id="optLog" value="Output" unselectable="false">
+      <cl:xylayoutdata std:sid="xyl-data-52fe1ab6" top="543px" left="13px" width="873px" height="1695px" horizontalAnchor="LEFT" verticalAnchor="TOP"/>
     </cl:output>
     <cl:xylayout std:sid="xylayout-39f3558e"/>
   </body>
