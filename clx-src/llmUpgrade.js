@@ -55,17 +55,105 @@ function onBodyLoad(e){
         console.error("❌ AI 초기화 실패:", error);
     });
 }
+//
+///*
+// * "스마트 그리드 채우기" 버튼 클릭 이벤트
+// */
+//async function onBtnSmartGridFillClick(e) {
+//    var rawText = app.lookup("txaUserInput").value; 
+//    if (!rawText) return alert("추가할 데이터를 텍스트로 입력해주세요.");
+//
+//    // ⭐ 엔진이 아직 로딩 중인지 확인하는 방어 로직
+//    if (!globalAIEngine) {
+//        return alert("AI가 아직 예열 중입니다. 잠시 후 다시 시도해주세요. (F12 콘솔 확인)");
+//    }
+//
+//    var grid = app.lookup("grd1");
+//    var dataSet = grid.dataSet; 
+//    var headers = dataSet.getHeaders(); 
+//    
+//    var today = new Date();
+//    var todayStr = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, '0') + "-" + String(today.getDate()).padStart(2, '0');
+//    
+//    var expectedJsonFormat = {};
+//    for(var i = 0; i < headers.length; i++) {
+//        var colId = headers[i].getName(); 
+//        expectedJsonFormat[colId] = "추출된_값"; 
+//    }
+//
+//    // 시스템 프롬프트 구성
+//    var systemPrompt = "당신은 데이터 추출 전문가입니다. 사용자의 텍스트를 분석하여 반드시 아래 조건에 맞는 JSON 배열(Array) 형태로만 응답하세요.\n\n" + 
+//    "1. 다건(Row) 물리적 복제: 텍스트에 'N건', 'N개' 등 수량이 명시되어 있다면, 반드시 해당 데이터를 N번 복제하여 배열 내에 N개의 독립된 객체(Row)로 생성하세요.\n" +
+//    "2. 유추 및 생성 금지: 명시되지 않은 품목은 절대 지어내지 마세요.\n" +
+//    "3. 빈 값 처리: 찾을 수 없는 속성은 null로 처리하세요.\n" +
+//    "4. 날짜 기준: 오늘 날짜는 [" + todayStr + "] 입니다. '오늘', '내일' 등의 단어는 YYYY-MM-DD 형식으로 변환하세요.\n\n" +
+//    "출력은 반드시 다음 JSON 배열 형태를 따라야 합니다:\n" +
+//    "[" + JSON.stringify(expectedJsonFormat) + "]";
+//
+//    try {
+//        console.log("🚀 백그라운드 Worker에 AI 분석 요청 중...");
+//        
+//        // 메인 스레드는 멈추지 않고, 백그라운드 Worker에서 연산을 수행합니다.
+//        const reply = await globalAIEngine.chat.completions.create({
+//            messages: [
+//                { role: "system", content: systemPrompt },
+//                { role: "user", content: rawText }
+//            ],
+//            temperature: 0.1, 
+//        });
+//
+//        var cleanJsonStr = reply.choices[0].message.content.replace(/```json/g, "").replace(/```/g, "").trim();
+//        var extractedArray = JSON.parse(cleanJsonStr);
+//        
+//        if (!Array.isArray(extractedArray)) {
+//            extractedArray = [extractedArray];
+//        }
+//
+//        console.log("✅ 백그라운드 AI 추출 완료:", extractedArray);
+//        
+//        var codeDictionaries = {
+//            "deptCode": { "영업팀": "DEPT_001", "인사팀": "DEPT_002", "IT팀": "DEPT_003" },
+//            "bankCode": { "국민은행": "KB_04", "신한은행": "SH_05", "우리은행": "WR_06" },
+//            "itemCategory": { "모니터": "CAT_M", "마우스": "CAT_MO", "키보드": "CAT_K" }
+//        };
+//
+//        var insertIdx = grid.getSelectedRowIndex();
+//        
+//        for(var j = 0; j < extractedArray.length; j++) {
+//            var rowData = extractedArray[j];
+//            
+//            for (var key in codeDictionaries) {
+//                if (rowData[key] && codeDictionaries[key][rowData[key]]) {
+//                    rowData[key] = codeDictionaries[key][rowData[key]];
+//                }
+//            }
+//            
+//            if (insertIdx === -1) {
+//                dataSet.addRowData(rowData);
+//            } else {
+//                grid.insertRowData(insertIdx + 1, false, rowData);
+//                insertIdx++; 
+//            }
+//        }
+//        
+//        app.getContainer().redraw();
+//        alert(extractedArray.length + "건의 데이터가 추가되었습니다!");
+//
+//    } catch(error) {
+//        console.error("❌ AI 추론 중 오류 발생:", error);
+//        alert("데이터 추출 중 문제가 발생했습니다.");
+//    }
+//}
 
 /*
- * "스마트 그리드 채우기" 버튼 클릭 이벤트
+ * "스마트 그리드 채우기" 버튼 클릭 이벤트 (스트리밍 최적화 버전)
  */
 async function onBtnSmartGridFillClick(e) {
     var rawText = app.lookup("txaUserInput").value; 
     if (!rawText) return alert("추가할 데이터를 텍스트로 입력해주세요.");
 
-    // ⭐ 엔진이 아직 로딩 중인지 확인하는 방어 로직
     if (!globalAIEngine) {
-        return alert("AI가 아직 예열 중입니다. 잠시 후 다시 시도해주세요. (F12 콘솔 확인)");
+        return alert("AI가 아직 예열 중입니다. 잠시 후 다시 시도해주세요.");
     }
 
     var grid = app.lookup("grd1");
@@ -78,50 +166,65 @@ async function onBtnSmartGridFillClick(e) {
     var expectedJsonFormat = {};
     for(var i = 0; i < headers.length; i++) {
         var colId = headers[i].getName(); 
-        expectedJsonFormat[colId] = "추출된_값"; 
+        expectedJsonFormat[colId] = ""; 
     }
+    var formatStr = JSON.stringify(expectedJsonFormat);
 
-    // 시스템 프롬프트 구성
-    var systemPrompt = "당신은 데이터 추출 전문가입니다. 사용자의 텍스트를 분석하여 반드시 아래 조건에 맞는 JSON 배열(Array) 형태로만 응답하세요.\n\n" + 
-    "1. 다건(Row) 물리적 복제: 텍스트에 'N건', 'N개' 등 수량이 명시되어 있다면, 반드시 해당 데이터를 N번 복제하여 배열 내에 N개의 독립된 객체(Row)로 생성하세요.\n" +
-    "2. 유추 및 생성 금지: 명시되지 않은 품목은 절대 지어내지 마세요.\n" +
-    "3. 빈 값 처리: 찾을 수 없는 속성은 null로 처리하세요.\n" +
-    "4. 날짜 기준: 오늘 날짜는 [" + todayStr + "] 입니다. '오늘', '내일' 등의 단어는 YYYY-MM-DD 형식으로 변환하세요.\n\n" +
-    "출력은 반드시 다음 JSON 배열 형태를 따라야 합니다:\n" +
-    "[" + JSON.stringify(expectedJsonFormat) + "]";
+    // [프롬프트는 이전의 강화된 범용 버전 사용 권장]
+    var systemPrompt = `당신은 데이터 파서입니다. 인사말 없이 오직 [ ] 로 된 JSON 배열만 출력하세요. 
+    오늘 날짜: ${todayStr}, 목표 구조: ${formatStr}`;
 
     try {
-        console.log("🚀 백그라운드 Worker에 AI 분석 요청 중...");
+        console.log("🚀 백그라운드 AI 스트리밍 분석 시작...");
         
-        // 메인 스레드는 멈추지 않고, 백그라운드 Worker에서 연산을 수행합니다.
-        const reply = await globalAIEngine.chat.completions.create({
+        // 1. 스트리밍 옵션(stream: true) 활성화
+        const chunks = await globalAIEngine.chat.completions.create({
             messages: [
                 { role: "system", content: systemPrompt },
                 { role: "user", content: rawText }
             ],
-            temperature: 0.1, 
+            temperature: 0.1,
+            stream: true // 🔥 스트리밍 켬
         });
 
-        var cleanJsonStr = reply.choices[0].message.content.replace(/```json/g, "").replace(/```/g, "").trim();
-        var extractedArray = JSON.parse(cleanJsonStr);
+        let fullReply = "";
+        
+        // 2. 실시간으로 조각(chunk) 데이터를 받아 처리
+        for await (const chunk of chunks) {
+            const content = chunk.choices[0]?.delta?.content || "";
+            fullReply += content;
+            
+            // 💡 [팁] 화면에 로그용 txaLog 같은 컨트롤이 있다면 실시간으로 보여줄 수 있습니다.
+             app.lookup("optLog").value = fullReply; 
+            
+            // 콘솔에서 실시간 생성 확인
+            console.log("🤖 AI 생성 중...", content);
+        }
+
+        console.log("✅ 스트리밍 완료. 최종 데이터 파싱 중...");
+
+        // 3. 정규식을 사용하여 JSON 부분만 추출 (가장 안전한 방법)
+        var jsonMatch = fullReply.match(/\[[\s\S]*\]/);
+        if (!jsonMatch) {
+            throw new Error("JSON 형식을 찾을 수 없습니다.");
+        }
+
+        var extractedArray = JSON.parse(jsonMatch[0]);
         
         if (!Array.isArray(extractedArray)) {
             extractedArray = [extractedArray];
         }
 
-        console.log("✅ 백그라운드 AI 추출 완료:", extractedArray);
-        
+        // 4. 데이터 맵핑 및 그리드 삽입 (기존 로직 동일)
         var codeDictionaries = {
             "deptCode": { "영업팀": "DEPT_001", "인사팀": "DEPT_002", "IT팀": "DEPT_003" },
-            "bankCode": { "국민은행": "KB_04", "신한은행": "SH_05", "우리은행": "WR_06" },
-            "itemCategory": { "모니터": "CAT_M", "마우스": "CAT_MO", "키보드": "CAT_K" }
+            "bankCode": { "국민은행": "KB_04", "신한은행": "SH_05", "우리은행": "WR_06" }
         };
 
         var insertIdx = grid.getSelectedRowIndex();
         
         for(var j = 0; j < extractedArray.length; j++) {
             var rowData = extractedArray[j];
-            
             for (var key in codeDictionaries) {
                 if (rowData[key] && codeDictionaries[key][rowData[key]]) {
                     rowData[key] = codeDictionaries[key][rowData[key]];
@@ -137,10 +240,10 @@ async function onBtnSmartGridFillClick(e) {
         }
         
         app.getContainer().redraw();
-        alert(extractedArray.length + "건의 데이터가 추가되었습니다!");
+        console.log("✅ 그리드 반영 완료");
 
     } catch(error) {
-        console.error("❌ AI 추론 중 오류 발생:", error);
-        alert("데이터 추출 중 문제가 발생했습니다.");
+        console.error("❌ 스트리밍 추론 오류:", error);
+        alert("분석 중 오류가 발생했습니다.");
     }
 }
