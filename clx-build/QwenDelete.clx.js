@@ -206,7 +206,7 @@
 					{"reqDate": "reqDate1", "clientName": "clientName1", "itemName": "itemName1", "orderCount": "orderCount1", "food": "짜장면"},
 					{"reqDate": "reqDate2", "clientName": "clientName2", "itemName": "itemName2", "orderCount": "orderCount2", "food": "탕수육"},
 					{"reqDate": "reqDate3", "clientName": "clientName3", "itemName": "itemName3", "orderCount": "orderCount3", "food": "짬뽕"},
-					{"reqDate": "reqDate4", "clientName": "clientName4", "itemName": "itemName4", "orderCount": "orderCount4", "food": "짜장면"},
+					{"reqDate": "reqDate4", "clientName": "사자", "itemName": "itemName4", "orderCount": "orderCount4", "food": "짜장면"},
 					{"reqDate": "reqDate5", "clientName": "clientName5", "itemName": "itemName5", "orderCount": "orderCount5", "food": "짬짜면"},
 					{"reqDate": "reqDate6", "clientName": "clientName6", "itemName": "itemName6", "orderCount": "orderCount6", "food": "볶음밥"},
 					{"reqDate": "reqDate7", "clientName": "clientName7", "itemName": "itemName7", "orderCount": "orderCount7", "food": "양장피"}

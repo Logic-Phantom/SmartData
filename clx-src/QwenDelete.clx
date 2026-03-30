@@ -37,7 +37,7 @@
           </cl:datarow>
           <cl:datarow>
             <cl:datavalue columnname="reqDate">reqDate4</cl:datavalue>
-            <cl:datavalue columnname="clientName">clientName4</cl:datavalue>
+            <cl:datavalue columnname="clientName"><![CDATA[사자]]></cl:datavalue>
             <cl:datavalue columnname="itemName">itemName4</cl:datavalue>
             <cl:datavalue columnname="orderCount">orderCount4</cl:datavalue>
             <cl:datavalue columnname="food"><![CDATA[짜장면]]></cl:datavalue>
