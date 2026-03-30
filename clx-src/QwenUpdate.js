@@ -1,0 +1,185 @@
+// llmUpgrade.js
+
+var globalAIEngine = null;
+
+function onBodyLoad(e){
+    // 1. 백그라운드 스레드(Worker) 생성 
+    const worker = new Worker(new URL("./lib/llm-worker.js", window.location.href), { type: "module" });
+
+    worker.onerror = function(err) {
+        console.error("🚨 [Worker 에러]:", err.message);
+    };
+
+    import("./lib/web-llm.js").then(async function(webllm) {
+        console.log("⏳ 폐쇄망 로컬 AI 엔진 예열 시작...");
+
+        const modelId = "Qwen2.5-0.5B-Local"; 
+        
+        // ⭐ 폐쇄망 절대 경로 지정
+        const absoluteModelUrl = new URL("./lib/Qwen2.5-0.5B-Instruct-q4f16_1-MLC/", window.location.href).href;
+        const absoluteWasmUrl = new URL("./lib/Qwen2.5-0.5B-Instruct-q4f16_1-MLC/Qwen2-0.5B-Instruct-q4f16_1-ctx4k_cs1k-webgpu.wasm", window.location.href).href;
+
+        const customAppConfig = {
+            model_list: [
+                {
+                    model_id: modelId,
+                    model: absoluteModelUrl, 
+                    model_lib: absoluteWasmUrl 
+                }
+            ]
+        };
+
+        var logCtrl = app.lookup("optLog");
+        
+        globalAIEngine = await webllm.CreateWebWorkerMLCEngine(worker, modelId, {
+            appConfig: customAppConfig,
+            initProgressCallback: (progress) => {
+                var progressText = `[AI 로컬 로딩] ${Math.round(progress.progress * 100)}% : ${progress.text}`;
+                console.log(progressText);
+                
+                if (logCtrl) {
+                    logCtrl.value = progressText;
+                    app.getContainer().redraw();
+                }
+            }
+        });
+
+        console.log("✅ AI 폐쇄망 예열 완료!");
+        if (logCtrl) {
+            logCtrl.value = "✅ AI 엔진 세팅 완료! 오프라인 동작 준비 끝.";
+            app.getContainer().redraw();
+        }
+
+    }).catch(function(error) {
+        console.error("❌ AI 초기화 실패:", error);
+    });
+}
+
+/*
+ * "스마트 그리드 수정" 버튼 클릭 이벤트 (JSON 제거! 순수 텍스트 추출 방식)
+ */
+async function onBtnSmartGridUpdateClick(e) {
+    var rawText = app.lookup("txaUserInput").value; 
+    if (!rawText) return alert("변경할 내용을 텍스트로 입력해주세요.");
+
+    if (!globalAIEngine) {
+        return alert("AI가 아직 예열 중입니다. 상단 로그를 확인해주세요.");
+    }
+
+    var grid = app.lookup("grd1"); 
+    var dataSet = grid.dataSet; 
+    var headers = dataSet.getHeaders(); 
+    
+    // 전체 컬럼 목록 추출 (JS 검색용)
+    var allowedKeys = [];
+    for(var i = 0; i < headers.length; i++) {
+        allowedKeys.push(headers[i].getName());
+    }
+
+    // ⭐ 환각 원천 차단! 철저한 범용성 + Copy & Paste 강제 프롬프트
+    var systemPrompt = `당신은 주어진 문장에서 단어를 '절대 지어내지 않고' 그대로 복사(Copy)해서 추출하는 텍스트 분리기입니다.
+						인사말이나 부연 설명 없이 오직 딱 한 줄만 출력하세요.
+						
+						[🚨 3대 절대 금지 규칙 🚨]
+						1. 창조 금지: 문장에 없는 단어를 마음대로 상상해서 적으면 절대 안 됩니다. 반드시 사용자가 입력한 글자 그대로만 가져오세요.
+						2. 조사 금지: 단어 뒤에 붙은 한국어 조사('을', '를', '으로', '로', '변경', '수정', '해')는 완벽하게 잘라내세요.
+						3. 형식 강제: 오직 기존단어|새단어 형식으로 파이프(|) 기호만 사용하세요.
+						
+						[단어 추출 원리]
+						- 사용자의 문장에서 [바뀌기 전 대상]과 [바뀔 새로운 대상]을 찾고 글자만 떼옵니다.
+						
+						[예시] (구조만 참고할 것)
+						입력: "기존항목A를 새항목B로 변경해줘"
+						출력: 기존항목A|새항목B
+						
+						입력: "원본데이터 가를 타겟데이터 나로 수정"
+						출력: 원본데이터 가|타겟데이터 나
+						
+						위 규칙을 명심하고, 아래 사용자의 문장에서 두 단어만 추출하여 '기존단어|새단어' 형태로 출력하세요.`;
+
+    try {
+        console.log("🚀 백그라운드 AI 순수 텍스트 분석 시작...");
+        var logCtrl = app.lookup("optLog");
+        
+        const chunks = await globalAIEngine.chat.completions.create({
+            messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: rawText }
+            ],
+            temperature: 0.0, // ⭐ 창의성을 0%로 만들어 모델이 딴생각을 절대 못하게 막음
+            stream: true 
+        });
+
+        let fullReply = "";
+        
+        for await (const chunk of chunks) {
+            const content = chunk.choices[0]?.delta?.content || "";
+            fullReply += content;
+            if(logCtrl) {
+                logCtrl.value = fullReply; 
+                app.getContainer().redraw();
+            }
+        }
+
+        console.log("✅ 스트리밍 완료. 텍스트 파싱 시작...");
+
+        // 3. 단순 문자열 자르기(Split)
+        var cleanText = fullReply.replace(/`/g, "").trim(); 
+        var parts = cleanText.split("|");
+
+        if (parts.length !== 2) {
+            console.error("🚨 AI 파싱 실패 (파이프 기호 없음):", cleanText);
+            return alert("변경할 대상과 새 값을 명확히 분리하지 못했습니다. 응답: " + cleanText);
+        }
+
+        var oldVal = parts[0].trim();
+        var newVal = parts[1].trim();
+
+        if(!oldVal || !newVal) {
+            return alert("기존 값 또는 새 값을 찾을 수 없습니다.");
+        }
+
+        console.log("🔍 AI 텍스트 추출 완료 -> 기존값:", oldVal, "/ 새값:", newVal);
+
+        // 4. JS 전체 컬럼 자동 탐색
+        var targetRows = [];
+        var targetCol = "";
+        
+        for(var c = 0; c < allowedKeys.length; c++) {
+            var searchCol = allowedKeys[c];
+            var expr = searchCol + " == '" + oldVal + "'";
+            var foundRows = dataSet.findAllRow(expr);
+            
+            if(foundRows && foundRows.length > 0) {
+                targetRows = foundRows;
+                targetCol = searchCol;
+                console.log("💡 컬럼 스캔 완료! '" + targetCol + "' 컬럼에서 데이터 발견.");
+                break; 
+            }
+        }
+
+        if(!targetRows || targetRows.length === 0) {
+            return alert("그리드의 어떤 컬럼에서도 '" + oldVal + "' 데이터를 찾을 수 없습니다.");
+        }
+
+        var updateCount = 0;
+        
+        for(var k = 0; k < targetRows.length; k++) {
+            var rowIndex = targetRows[k].getIndex();
+            dataSet.setValue(rowIndex, targetCol, newVal);
+            updateCount++;
+        }
+        
+        app.getContainer().redraw();
+        alert(updateCount + "건의 데이터가 '" + newVal + "'(으)로 변경되었습니다.");
+        
+        if(logCtrl) {
+            logCtrl.value = "✅ 변경 완료! 총 " + updateCount + "건 수정됨.";
+            app.getContainer().redraw();
+        }
+
+    } catch(error) {
+        console.error("❌ 처리 오류:", error);
+        alert("분석 중 오류가 발생했습니다. 콘솔을 확인하세요.");
+    }
+}

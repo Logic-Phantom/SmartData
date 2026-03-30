@@ -51,7 +51,7 @@
       </cl:griddetail>
     </cl:grid>
     <cl:output std:sid="output-d8f55b37" id="optLog" value="Output" unselectable="false">
-      <cl:xylayoutdata std:sid="xyl-data-52fe1ab6" top="543px" left="13px" width="873px" height="1695px" horizontalAnchor="LEFT" verticalAnchor="TOP"/>
+      <cl:xylayoutdata std:sid="xyl-data-52fe1ab6" top="523px" left="13px" width="873px" height="1314px" horizontalAnchor="LEFT" verticalAnchor="TOP"/>
     </cl:output>
     <cl:xylayout std:sid="xylayout-39f3558e"/>
   </body>

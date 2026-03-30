@@ -1,0 +1,179 @@
+// llmUpgrade.js
+
+var globalAIEngine = null;
+
+function onBodyLoad(e){
+    // 1. 백그라운드 스레드(Worker) 생성 
+    const worker = new Worker(new URL("./lib/llm-worker.js", window.location.href), { type: "module" });
+
+    worker.onerror = function(err) {
+        console.error("🚨 [Worker 에러]:", err.message);
+    };
+
+    import("./lib/web-llm.js").then(async function(webllm) {
+        console.log("⏳ 폐쇄망 로컬 AI 엔진 예열 시작...");
+
+        const modelId = "Qwen2.5-0.5B-Local"; 
+        
+        // ⭐ 폐쇄망 절대 경로 지정
+        const absoluteModelUrl = new URL("./lib/Qwen2.5-0.5B-Instruct-q4f16_1-MLC/", window.location.href).href;
+        const absoluteWasmUrl = new URL("./lib/Qwen2.5-0.5B-Instruct-q4f16_1-MLC/Qwen2-0.5B-Instruct-q4f16_1-ctx4k_cs1k-webgpu.wasm", window.location.href).href;
+
+        const customAppConfig = {
+            model_list: [
+                {
+                    model_id: modelId,
+                    model: absoluteModelUrl, 
+                    model_lib: absoluteWasmUrl 
+                }
+            ]
+        };
+
+        var logCtrl = app.lookup("optLog");
+        
+        globalAIEngine = await webllm.CreateWebWorkerMLCEngine(worker, modelId, {
+            appConfig: customAppConfig,
+            initProgressCallback: (progress) => {
+                var progressText = `[AI 로컬 로딩] ${Math.round(progress.progress * 100)}% : ${progress.text}`;
+                console.log(progressText);
+                
+                if (logCtrl) {
+                    logCtrl.value = progressText;
+                    app.getContainer().redraw();
+                }
+            }
+        });
+
+        console.log("✅ AI 폐쇄망 예열 완료!");
+        if (logCtrl) {
+            logCtrl.value = "✅ AI 엔진 세팅 완료! 오프라인 동작 준비 끝.";
+            app.getContainer().redraw();
+        }
+
+    }).catch(function(error) {
+        console.error("❌ AI 초기화 실패:", error);
+    });
+}
+/*
+ * "스마트 그리드 삭제" 버튼 클릭 이벤트 (순수 텍스트 추출 + 다중 행 일괄 삭제)
+ */
+async function onBtnSmartGridDeleteClick(e) {
+    var rawText = app.lookup("txaUserInput").value; 
+    if (!rawText) return alert("삭제할 내용을 텍스트로 입력해주세요.");
+
+    if (!globalAIEngine) {
+        return alert("AI가 아직 예열 중입니다. 상단 로그를 확인해주세요.");
+    }
+
+    var grid = app.lookup("grd1"); 
+    var dataSet = grid.dataSet; 
+    var headers = dataSet.getHeaders(); 
+    
+    // 전체 컬럼 목록 추출 (JS 검색용)
+    var allowedKeys = [];
+    for(var i = 0; i < headers.length; i++) {
+        allowedKeys.push(headers[i].getName());
+    }
+
+    // ⭐ 파이프(|)도 필요 없는 초간단 삭제 타겟 추출 프롬프트
+// ⭐ '데이터' 같은 쓰레기 단어를 강제로 필터링하는 초강력 삭제 프롬프트
+    var systemPrompt = `당신은 사용자의 문장에서 '삭제할 실제 대상(명사)' 딱 하나만 남기고 나머지 모든 단어를 버리는 텍스트 필터입니다.
+						인사말이나 기호 없이 오직 단어 1개만 출력하세요.
+						
+						[🚨 절대 규칙 🚨]
+						1. 아래의 불용어(쓰레기 단어)가 문장에 포함되어 있다면 완벽하게 지워버리세요.
+						   - 🗑️ 버릴 단어들: "데이터", "삭제", "지워", "제거", "해", "줘", "을", "를", "은", "는", "추가"
+						2. 불용어를 모두 버리고 남은 '순수한 핵심 명사' 딱 하나만 출력하세요. 공백도 없어야 합니다.
+						
+						[필터링 예시] (반드시 이 패턴을 완벽히 따를 것)
+						입력: "[임의의_명사] 데이터 삭제"
+						출력: [임의의_명사]
+						
+						입력: "[핵심_타겟]을 지워줘"
+						출력: [핵심_타겟]
+						
+						입력: "[대상_단어]데이터 삭제해" (띄어쓰기가 없어도 불용어는 버려야 함)
+						출력: [대상_단어]
+						
+						이제 위 규칙에 따라 아래 문장에서 쓰레기 단어를 모두 버리고, 남은 알맹이 단어 하나만 딱 출력하세요.`;
+
+    try {
+        console.log("🚀 백그라운드 AI 삭제 조건 분석 시작...");
+        var logCtrl = app.lookup("optLog");
+        
+        const chunks = await globalAIEngine.chat.completions.create({
+            messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: rawText }
+            ],
+            temperature: 0.0, // 창의성 0% (복사/붙여넣기 강제)
+            stream: true 
+        });
+
+        let fullReply = "";
+        
+        for await (const chunk of chunks) {
+            const content = chunk.choices[0]?.delta?.content || "";
+            fullReply += content;
+            if(logCtrl) {
+                logCtrl.value = fullReply; 
+                app.getContainer().redraw();
+            }
+        }
+
+        console.log("✅ 스트리밍 완료. 삭제 텍스트 파싱 시작...");
+
+        // 3. 단일 문자열 정제
+        var targetVal = fullReply.replace(/`/g, "").trim(); 
+
+        if(!targetVal) {
+            return alert("삭제할 대상을 명확히 분리하지 못했습니다. 응답: " + fullReply);
+        }
+
+        console.log("🔍 AI 텍스트 추출 완료 -> 삭제 대상:", targetVal);
+
+        // 4. JS 전체 컬럼 자동 탐색
+        var targetRows = [];
+        var targetCol = "";
+        
+        for(var c = 0; c < allowedKeys.length; c++) {
+            var searchCol = allowedKeys[c];
+            var expr = searchCol + " == '" + targetVal + "'";
+            var foundRows = dataSet.findAllRow(expr);
+            
+            if(foundRows && foundRows.length > 0) {
+                targetRows = foundRows;
+                targetCol = searchCol;
+                console.log("💡 컬럼 스캔 완료! '" + targetCol + "' 컬럼에서 삭제 대상 발견.");
+                break; 
+            }
+        }
+
+        if(!targetRows || targetRows.length === 0) {
+            return alert("그리드의 어떤 컬럼에서도 '" + targetVal + "' 데이터를 찾을 수 없어 삭제하지 못했습니다.");
+        }
+
+        // ⭐ 5. 알려주신 delete API 적용 (배열을 이용한 일괄 삭제)
+        var rowIndices = []; // 인덱스를 담을 배열
+        
+        for(var k = 0; k < targetRows.length; k++) {
+            rowIndices.push(targetRows[k].getIndex());
+        }
+        
+        // 인덱스 배열을 통째로 넘겨서 한 번에 삭제!
+        grid.deleteRow(rowIndices);
+        
+        // 화면 갱신
+        app.getContainer().redraw();
+        alert(rowIndices.length + "건의 '" + targetVal + "' 데이터가 삭제되었습니다.");
+        
+        if(logCtrl) {
+            logCtrl.value = "✅ 삭제 완료! 총 " + rowIndices.length + "건 제거됨.";
+            app.getContainer().redraw();
+        }
+
+    } catch(error) {
+        console.error("❌ 처리 오류:", error);
+        alert("분석 중 오류가 발생했습니다. 콘솔을 확인하세요.");
+    }
+}

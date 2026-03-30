@@ -1,0 +1,113 @@
+<?xml version="1.1" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:cl="http://tomatosystem.co.kr/cleopatra" xmlns:std="http://tomatosystem.co.kr/cleopatra/studio" std:sid="html-a4dc870a" version="1.0.5980">
+  <head std:sid="head-bcbd469d">
+    <screen std:sid="screen-b65766d1" id="default" name="default" width="1024px" height="768px"/>
+    <screen std:sid="screen-343f2290" id="tablet" name="tablet" width="500px" height="667px"/>
+    <screen std:sid="screen-131de2c5" id="mobile" name="mobile" width="350px" height="525px"/>
+    <cl:model std:sid="model-331399a3">
+      <cl:dataset std:sid="d-set-93de1f2f" id="dsOrder">
+        <cl:datacolumnlist>
+          <cl:datacolumn std:sid="d-column-65789689" name="reqDate"/>
+          <cl:datacolumn std:sid="d-column-a4059322" name="clientName"/>
+          <cl:datacolumn std:sid="d-column-e9923d86" name="itemName"/>
+          <cl:datacolumn std:sid="d-column-197cea58" name="orderCount"/>
+          <cl:datacolumn std:sid="d-column-385fa9bc" name="food"/>
+        </cl:datacolumnlist>
+        <cl:datarowlist>
+          <cl:datarow>
+            <cl:datavalue columnname="reqDate">reqDate1</cl:datavalue>
+            <cl:datavalue columnname="clientName">clientName1</cl:datavalue>
+            <cl:datavalue columnname="itemName">itemName1</cl:datavalue>
+            <cl:datavalue columnname="orderCount">orderCount1</cl:datavalue>
+            <cl:datavalue columnname="food"><![CDATA[짜장면]]></cl:datavalue>
+          </cl:datarow>
+          <cl:datarow>
+            <cl:datavalue columnname="reqDate">reqDate2</cl:datavalue>
+            <cl:datavalue columnname="clientName">clientName2</cl:datavalue>
+            <cl:datavalue columnname="itemName">itemName2</cl:datavalue>
+            <cl:datavalue columnname="orderCount">orderCount2</cl:datavalue>
+            <cl:datavalue columnname="food"><![CDATA[탕수육]]></cl:datavalue>
+          </cl:datarow>
+          <cl:datarow>
+            <cl:datavalue columnname="reqDate">reqDate3</cl:datavalue>
+            <cl:datavalue columnname="clientName">clientName3</cl:datavalue>
+            <cl:datavalue columnname="itemName">itemName3</cl:datavalue>
+            <cl:datavalue columnname="orderCount">orderCount3</cl:datavalue>
+            <cl:datavalue columnname="food"><![CDATA[짬뽕]]></cl:datavalue>
+          </cl:datarow>
+          <cl:datarow>
+            <cl:datavalue columnname="reqDate">reqDate4</cl:datavalue>
+            <cl:datavalue columnname="clientName">clientName4</cl:datavalue>
+            <cl:datavalue columnname="itemName">itemName4</cl:datavalue>
+            <cl:datavalue columnname="orderCount">orderCount4</cl:datavalue>
+            <cl:datavalue columnname="food"><![CDATA[짜장면]]></cl:datavalue>
+          </cl:datarow>
+          <cl:datarow>
+            <cl:datavalue columnname="reqDate">reqDate5</cl:datavalue>
+            <cl:datavalue columnname="clientName">clientName5</cl:datavalue>
+            <cl:datavalue columnname="itemName">itemName5</cl:datavalue>
+            <cl:datavalue columnname="orderCount">orderCount5</cl:datavalue>
+            <cl:datavalue columnname="food"><![CDATA[짬짜면]]></cl:datavalue>
+          </cl:datarow>
+          <cl:datarow>
+            <cl:datavalue columnname="reqDate">reqDate6</cl:datavalue>
+            <cl:datavalue columnname="clientName">clientName6</cl:datavalue>
+            <cl:datavalue columnname="itemName">itemName6</cl:datavalue>
+            <cl:datavalue columnname="orderCount">orderCount6</cl:datavalue>
+            <cl:datavalue columnname="food"><![CDATA[볶음밥]]></cl:datavalue>
+          </cl:datarow>
+          <cl:datarow>
+            <cl:datavalue columnname="reqDate">reqDate7</cl:datavalue>
+            <cl:datavalue columnname="clientName">clientName7</cl:datavalue>
+            <cl:datavalue columnname="itemName">itemName7</cl:datavalue>
+            <cl:datavalue columnname="orderCount">orderCount7</cl:datavalue>
+            <cl:datavalue columnname="food"><![CDATA[양장피]]></cl:datavalue>
+          </cl:datarow>
+        </cl:datarowlist>
+      </cl:dataset>
+    </cl:model>
+    <cl:appspec/>
+  </head>
+  <body std:sid="body-ad7b4624">
+    <cl:listener std:sid="listener-88d793e2" name="load" handler="onBodyLoad"/>
+    <cl:button std:sid="button-6c1089be" value="Button">
+      <cl:listener std:sid="listener-ca23a68e" name="click" handler="onBtnSmartGridDeleteClick"/>
+      <cl:xylayoutdata std:sid="xyl-data-e5b6c0ff" top="38px" left="685px" width="144px" height="40px" horizontalAnchor="LEFT" verticalAnchor="TOP"/>
+    </cl:button>
+    <cl:textarea std:sid="t-area-79dfc464" id="txaUserInput" value="짜장면 삭제">
+      <cl:xylayoutdata std:sid="xyl-data-85509659" top="10px" left="10px" width="553px" height="137px" horizontalAnchor="LEFT" verticalAnchor="TOP"/>
+    </cl:textarea>
+    <cl:grid std:sid="grid-0eebb732" id="grd1" datasetid="dsOrder">
+      <cl:xylayoutdata std:sid="xyl-data-803a3625" top="194px" left="20px" width="860px" height="328px" horizontalAnchor="LEFT" verticalAnchor="TOP"/>
+      <cl:gridcolumn std:sid="g-column-e3dfacf8"/>
+      <cl:gridcolumn std:sid="g-column-c391542d"/>
+      <cl:gridcolumn std:sid="g-column-01198e95"/>
+      <cl:gridcolumn std:sid="g-column-25f7e859"/>
+      <cl:gridcolumn std:sid="g-column-a2ccb548"/>
+      <cl:gridheader std:sid="gh-band-0a459726">
+        <cl:gridrow std:sid="g-row-b548b753" height="24px"/>
+        <cl:gridcell std:sid="gh-cell-af16bb7b" rowindex="0" colindex="0" targetcolumnname="reqDate" sortable="false" filterable="false" text="reqDate"/>
+        <cl:gridcell std:sid="gh-cell-4b3ce6ed" rowindex="0" colindex="1" targetcolumnname="clientName" sortable="false" filterable="false" text="clientName"/>
+        <cl:gridcell std:sid="gh-cell-260a1adc" rowindex="0" colindex="2" targetcolumnname="itemName" sortable="false" filterable="false" text="itemName"/>
+        <cl:gridcell std:sid="gh-cell-cdc7e65b" rowindex="0" colindex="3" targetcolumnname="orderCount" sortable="false" filterable="false" text="orderCount"/>
+        <cl:gridcell std:sid="gh-cell-c2f3d375" rowindex="0" colindex="4" targetcolumnname="food" sortable="false" filterable="false" text="food"/>
+      </cl:gridheader>
+      <cl:griddetail std:sid="gd-band-df900e2e">
+        <cl:gridrow std:sid="g-row-718968b4" height="24px"/>
+        <cl:gridcell std:sid="gd-cell-1e901d4d" rowindex="0" colindex="0" columnname="reqDate"/>
+        <cl:gridcell std:sid="gd-cell-b84d0360" rowindex="0" colindex="1" columnname="clientName"/>
+        <cl:gridcell std:sid="gd-cell-d3978978" rowindex="0" colindex="2" columnname="itemName"/>
+        <cl:gridcell std:sid="gd-cell-a3c7884b" rowindex="0" colindex="3" columnname="orderCount"/>
+        <cl:gridcell std:sid="gd-cell-da9cd860" rowindex="0" colindex="4" columnname="food"/>
+      </cl:griddetail>
+    </cl:grid>
+    <cl:output std:sid="output-810b36af" id="optLog" value="Output" unselectable="false">
+      <cl:xylayoutdata std:sid="xyl-data-591893fa" top="561px" left="20px" width="860px" height="277px" horizontalAnchor="LEFT" verticalAnchor="TOP"/>
+    </cl:output>
+    <cl:xylayout std:sid="xylayout-f3983e41"/>
+  </body>
+  <std:studiosetting>
+    <std:hruler/>
+    <std:vruler/>
+  </std:studiosetting>
+</html>
