@@ -1,3 +1,189 @@
+//// llmUpgrade.js
+//
+//var globalAIEngine = null;
+//
+//function onBodyLoad(e){
+//    // 1. 백그라운드 스레드(Worker) 생성 
+//    const worker = new Worker(new URL("./lib/llm-worker.js", window.location.href), { type: "module" });
+//
+//    worker.onerror = function(err) {
+//        console.error("🚨 [Worker 에러]:", err.message);
+//    };
+//
+//    import("./lib/web-llm.js").then(async function(webllm) {
+//        console.log("⏳ 폐쇄망 로컬 AI 엔진 예열 시작...");
+//
+//        const modelId = "Qwen2.5-0.5B-Local"; 
+//        
+//        // ⭐ 폐쇄망 절대 경로 지정
+//        const absoluteModelUrl = new URL("./lib/Qwen2.5-0.5B-Instruct-q4f16_1-MLC/", window.location.href).href;
+//        const absoluteWasmUrl = new URL("./lib/Qwen2.5-0.5B-Instruct-q4f16_1-MLC/Qwen2-0.5B-Instruct-q4f16_1-ctx4k_cs1k-webgpu.wasm", window.location.href).href;
+//
+//        const customAppConfig = {
+//            model_list: [
+//                {
+//                    model_id: modelId,
+//                    model: absoluteModelUrl, 
+//                    model_lib: absoluteWasmUrl 
+//                }
+//            ]
+//        };
+//
+//        var logCtrl = app.lookup("optLog");
+//        
+//        globalAIEngine = await webllm.CreateWebWorkerMLCEngine(worker, modelId, {
+//            appConfig: customAppConfig,
+//            initProgressCallback: (progress) => {
+//                var progressText = `[AI 로컬 로딩] ${Math.round(progress.progress * 100)}% : ${progress.text}`;
+//                console.log(progressText);
+//                
+//                if (logCtrl) {
+//                    logCtrl.value = progressText;
+//                    app.getContainer().redraw();
+//                }
+//            }
+//        });
+//
+//        console.log("✅ AI 폐쇄망 예열 완료!");
+//        if (logCtrl) {
+//            logCtrl.value = "✅ AI 엔진 세팅 완료! 오프라인 동작 준비 끝.";
+//            app.getContainer().redraw();
+//        }
+//
+//    }).catch(function(error) {
+//        console.error("❌ AI 초기화 실패:", error);
+//    });
+//}
+//
+///*
+// * "스마트 그리드 수정" 버튼 클릭 이벤트 (JSON 제거! 순수 텍스트 추출 방식)
+// */
+//async function onBtnSmartGridUpdateClick(e) {
+//    var rawText = app.lookup("txaUserInput").value; 
+//    if (!rawText) return alert("변경할 내용을 텍스트로 입력해주세요.");
+//
+//    if (!globalAIEngine) {
+//        return alert("AI가 아직 예열 중입니다. 상단 로그를 확인해주세요.");
+//    }
+//
+//    var grid = app.lookup("grd1"); 
+//    var dataSet = grid.dataSet; 
+//    var headers = dataSet.getHeaders(); 
+//    
+//    // 전체 컬럼 목록 추출 (JS 검색용)
+//    var allowedKeys = [];
+//    for(var i = 0; i < headers.length; i++) {
+//        allowedKeys.push(headers[i].getName());
+//    }
+//
+//    // ⭐ 환각 원천 차단! 철저한 범용성 + Copy & Paste 강제 프롬프트
+//    var systemPrompt = `당신은 주어진 문장에서 단어를 '절대 지어내지 않고' 그대로 복사(Copy)해서 추출하는 텍스트 분리기입니다.
+//						인사말이나 부연 설명 없이 오직 딱 한 줄만 출력하세요.
+//						
+//						[🚨 3대 절대 금지 규칙 🚨]
+//						1. 창조 금지: 문장에 없는 단어를 마음대로 상상해서 적으면 절대 안 됩니다. 반드시 사용자가 입력한 글자 그대로만 가져오세요.
+//						2. 조사 금지: 단어 뒤에 붙은 한국어 조사('을', '를', '으로', '로', '변경', '수정', '해')는 완벽하게 잘라내세요.
+//						3. 형식 강제: 오직 기존단어|새단어 형식으로 파이프(|) 기호만 사용하세요.
+//						
+//						[단어 추출 원리]
+//						- 사용자의 문장에서 [바뀌기 전 대상]과 [바뀔 새로운 대상]을 찾고 글자만 떼옵니다.
+//						
+//						[예시] (구조만 참고할 것)
+//						입력: "기존항목A를 새항목B로 변경해줘"
+//						출력: 기존항목A|새항목B
+//						
+//						입력: "원본데이터 가를 타겟데이터 나로 수정"
+//						출력: 원본데이터 가|타겟데이터 나
+//						
+//						위 규칙을 명심하고, 아래 사용자의 문장에서 두 단어만 추출하여 '기존단어|새단어' 형태로 출력하세요.`;
+//
+//    try {
+//        console.log("🚀 백그라운드 AI 순수 텍스트 분석 시작...");
+//        var logCtrl = app.lookup("optLog");
+//        
+//        const chunks = await globalAIEngine.chat.completions.create({
+//            messages: [
+//                { role: "system", content: systemPrompt },
+//                { role: "user", content: rawText }
+//            ],
+//            temperature: 0.0, // ⭐ 창의성을 0%로 만들어 모델이 딴생각을 절대 못하게 막음
+//            stream: true 
+//        });
+//
+//        let fullReply = "";
+//        
+//        for await (const chunk of chunks) {
+//            const content = chunk.choices[0]?.delta?.content || "";
+//            fullReply += content;
+//            if(logCtrl) {
+//                logCtrl.value = fullReply; 
+//                app.getContainer().redraw();
+//            }
+//        }
+//
+//        console.log("✅ 스트리밍 완료. 텍스트 파싱 시작...");
+//
+//        // 3. 단순 문자열 자르기(Split)
+//        var cleanText = fullReply.replace(/`/g, "").trim(); 
+//        var parts = cleanText.split("|");
+//
+//        if (parts.length !== 2) {
+//            console.error("🚨 AI 파싱 실패 (파이프 기호 없음):", cleanText);
+//            return alert("변경할 대상과 새 값을 명확히 분리하지 못했습니다. 응답: " + cleanText);
+//        }
+//
+//        var oldVal = parts[0].trim();
+//        var newVal = parts[1].trim();
+//
+//        if(!oldVal || !newVal) {
+//            return alert("기존 값 또는 새 값을 찾을 수 없습니다.");
+//        }
+//
+//        console.log("🔍 AI 텍스트 추출 완료 -> 기존값:", oldVal, "/ 새값:", newVal);
+//
+//        // 4. JS 전체 컬럼 자동 탐색
+//        var targetRows = [];
+//        var targetCol = "";
+//        
+//        for(var c = 0; c < allowedKeys.length; c++) {
+//            var searchCol = allowedKeys[c];
+//            var expr = searchCol + " == '" + oldVal + "'";
+//            var foundRows = dataSet.findAllRow(expr);
+//            
+//            if(foundRows && foundRows.length > 0) {
+//                targetRows = foundRows;
+//                targetCol = searchCol;
+//                console.log("💡 컬럼 스캔 완료! '" + targetCol + "' 컬럼에서 데이터 발견.");
+//                break; 
+//            }
+//        }
+//
+//        if(!targetRows || targetRows.length === 0) {
+//            return alert("그리드의 어떤 컬럼에서도 '" + oldVal + "' 데이터를 찾을 수 없습니다.");
+//        }
+//
+//        var updateCount = 0;
+//        
+//        for(var k = 0; k < targetRows.length; k++) {
+//            var rowIndex = targetRows[k].getIndex();
+//            dataSet.setValue(rowIndex, targetCol, newVal);
+//            updateCount++;
+//        }
+//        
+//        app.getContainer().redraw();
+//        alert(updateCount + "건의 데이터가 '" + newVal + "'(으)로 변경되었습니다.");
+//        
+//        if(logCtrl) {
+//            logCtrl.value = "✅ 변경 완료! 총 " + updateCount + "건 수정됨.";
+//            app.getContainer().redraw();
+//        }
+//
+//    } catch(error) {
+//        console.error("❌ 처리 오류:", error);
+//        alert("분석 중 오류가 발생했습니다. 콘솔을 확인하세요.");
+//    }
+//}
+
 // llmUpgrade.js
 
 var globalAIEngine = null;
@@ -56,7 +242,7 @@ function onBodyLoad(e){
 }
 
 /*
- * "스마트 그리드 수정" 버튼 클릭 이벤트 (JSON 제거! 순수 텍스트 추출 방식)
+ * "스마트 그리드 수정" 버튼 클릭 이벤트 (복합 조건 AND 검색 + JS 풀스캔)
  */
 async function onBtnSmartGridUpdateClick(e) {
     var rawText = app.lookup("txaUserInput").value; 
@@ -70,35 +256,36 @@ async function onBtnSmartGridUpdateClick(e) {
     var dataSet = grid.dataSet; 
     var headers = dataSet.getHeaders(); 
     
-    // 전체 컬럼 목록 추출 (JS 검색용)
+    // 전체 컬럼 목록 추출
     var allowedKeys = [];
     for(var i = 0; i < headers.length; i++) {
         allowedKeys.push(headers[i].getName());
     }
 
-    // ⭐ 환각 원천 차단! 철저한 범용성 + Copy & Paste 강제 프롬프트
-    var systemPrompt = `당신은 주어진 문장에서 단어를 '절대 지어내지 않고' 그대로 복사(Copy)해서 추출하는 텍스트 분리기입니다.
-						인사말이나 부연 설명 없이 오직 딱 한 줄만 출력하세요.
-						
-						[🚨 3대 절대 금지 규칙 🚨]
-						1. 창조 금지: 문장에 없는 단어를 마음대로 상상해서 적으면 절대 안 됩니다. 반드시 사용자가 입력한 글자 그대로만 가져오세요.
-						2. 조사 금지: 단어 뒤에 붙은 한국어 조사('을', '를', '으로', '로', '변경', '수정', '해')는 완벽하게 잘라내세요.
-						3. 형식 강제: 오직 기존단어|새단어 형식으로 파이프(|) 기호만 사용하세요.
-						
-						[단어 추출 원리]
-						- 사용자의 문장에서 [바뀌기 전 대상]과 [바뀔 새로운 대상]을 찾고 글자만 떼옵니다.
-						
-						[예시] (구조만 참고할 것)
-						입력: "기존항목A를 새항목B로 변경해줘"
-						출력: 기존항목A|새항목B
-						
-						입력: "원본데이터 가를 타겟데이터 나로 수정"
-						출력: 원본데이터 가|타겟데이터 나
-						
-						위 규칙을 명심하고, 아래 사용자의 문장에서 두 단어만 추출하여 '기존단어|새단어' 형태로 출력하세요.`;
+    // ⭐ 복합 조건(AND) + 변경 대상 추출 프롬프트
+    var systemPrompt = `당신은 문장에서 데이터를 필터링할 '조건', '변경 전 기존단어', '변경 후 새단어'를 순서대로 추출하는 텍스트 필터입니다.
+인사말 없이 오직 파이프(|)로 연결된 한 줄만 출력하세요.
+
+[🚨 절대 지켜야 할 규칙 🚨]
+1. 불용어 버리기: "데이터", "데이터중", "데이터중에", "중", "중에", "변경", "수정", "바꿔", "해", "의", "은", "는", "이", "가", "을", "를", "로", "으로" 등은 띄어쓰기 없이 붙어있어도 완벽히 찾아내 버리세요.
+2. 추출 순서 (매우 중요): (조건단어들...)|기존단어|새단어 순서로 파이프(|)를 연결하세요. 조건이 없다면 기존단어|새단어 만 출력하세요.
+3. 창조 금지: 문장에 없는 단어를 상상하지 마세요. (오타 수정 절대 금지)
+4. 기호 금지: 쌍따옴표("")나 대괄호([]) 없이 순수 텍스트만 출력하세요.
+
+[필터링 훈련 예시]
+입력: "항목A 데이터중에 항목B를 항목C로 변경"
+출력: 항목A|항목B|항목C
+
+입력: "조건가 이면서 조건나 인 기존항목을 새항목으로 수정"
+출력: 조건가|조건나|기존항목|새항목
+
+입력: "가나다데이터 마바사로 바꿔"
+출력: 가나다|마바사
+
+이제 위 규칙과 예시 패턴을 엄격히 적용하여, 텍스트에서 불용어를 완벽히 제거하고 조건과 대상을 파이프(|)로 연결해 출력하세요.`;
 
     try {
-        console.log("🚀 백그라운드 AI 순수 텍스트 분석 시작...");
+        console.log("🚀 백그라운드 AI 다 반복합 수정 분석 시작...");
         var logCtrl = app.lookup("optLog");
         
         const chunks = await globalAIEngine.chat.completions.create({
@@ -106,7 +293,8 @@ async function onBtnSmartGridUpdateClick(e) {
                 { role: "system", content: systemPrompt },
                 { role: "user", content: rawText }
             ],
-            temperature: 0.0, // ⭐ 창의성을 0%로 만들어 모델이 딴생각을 절대 못하게 막음
+            temperature: 0.0, // 창의성 0% 강제 (복붙 강제)
+            max_tokens: 30,   // GPU 과부하 방지
             stream: true 
         });
 
@@ -121,60 +309,89 @@ async function onBtnSmartGridUpdateClick(e) {
             }
         }
 
-        console.log("✅ 스트리밍 완료. 텍스트 파싱 시작...");
+        console.log("✅ 스트리밍 완료. 수정 조건 파싱 시작...");
 
-        // 3. 단순 문자열 자르기(Split)
+        // 3. 추출된 단어 정제 및 배열화
         var cleanText = fullReply.replace(/`/g, "").trim(); 
-        var parts = cleanText.split("|");
+        var parts = cleanText.split("|").map(function(item) { 
+            return item.trim(); 
+        }).filter(function(item) { 
+            return item !== ""; 
+        });
 
-        if (parts.length !== 2) {
-            console.error("🚨 AI 파싱 실패 (파이프 기호 없음):", cleanText);
-            return alert("변경할 대상과 새 값을 명확히 분리하지 못했습니다. 응답: " + cleanText);
+        if (parts.length < 2) {
+            return alert("변경할 기존 값과 새 값을 명확히 분리하지 못했습니다. 응답: " + cleanText);
         }
 
-        var oldVal = parts[0].trim();
-        var newVal = parts[1].trim();
+        // ⭐ 배열의 구조 활용: 맨 뒤는 새 값, 그 앞은 기존 값, 나머지는 모두 조건!
+        var newVal = parts.pop();
+        var oldVal = parts.pop();
+        var conditions = parts; // 남은 배열 요소들은 조건이 됩니다.
 
-        if(!oldVal || !newVal) {
-            return alert("기존 값 또는 새 값을 찾을 수 없습니다.");
-        }
+        console.log("🔍 AI 추출 완료 -> 조건:", conditions, "/ 기존값:", oldVal, "/ 새값:", newVal);
 
-        console.log("🔍 AI 텍스트 추출 완료 -> 기존값:", oldVal, "/ 새값:", newVal);
-
-        // 4. JS 전체 컬럼 자동 탐색
-        var targetRows = [];
-        var targetCol = "";
+        // 4. JS 다중 조건(AND) 탐색 및 수정 타겟 찾기
+        var rowCount = dataSet.getRowCount();
+        var updateTargets = []; // [{ rowIndex: 1, colName: "foodName" }, ...]
         
-        for(var c = 0; c < allowedKeys.length; c++) {
-            var searchCol = allowedKeys[c];
-            var expr = searchCol + " == '" + oldVal + "'";
-            var foundRows = dataSet.findAllRow(expr);
+        for (var r = 0; r < rowCount; r++) {
+            var rowData = dataSet.getRowData(r); 
+            var isMatchAll = true; 
             
-            if(foundRows && foundRows.length > 0) {
-                targetRows = foundRows;
-                targetCol = searchCol;
-                console.log("💡 컬럼 스캔 완료! '" + targetCol + "' 컬럼에서 데이터 발견.");
-                break; 
+            // [검사 1] 조건(AND)들이 이 행에 모두 존재하는가?
+            for (var c = 0; c < conditions.length; c++) {
+                var keyword = conditions[c];
+                var hasKeyword = false;
+                
+                for (var keyIdx = 0; keyIdx < allowedKeys.length; keyIdx++) {
+                    if (String(rowData[allowedKeys[keyIdx]]) === keyword) {
+                        hasKeyword = true;
+                        break; 
+                    }
+                }
+                
+                if (!hasKeyword) {
+                    isMatchAll = false; // 하나라도 없으면 탈락
+                    break; 
+                }
+            }
+            
+            // 조건이 안 맞으면 다음 행으로 패스
+            if (!isMatchAll) continue;
+
+            // [검사 2] 조건을 통과한 행에서, 수정할 대상(oldVal)이 어느 컬럼에 있는가?
+            var hasOldVal = false;
+            var targetCol = "";
+            for (var keyIdx = 0; keyIdx < allowedKeys.length; keyIdx++) {
+                if (String(rowData[allowedKeys[keyIdx]]) === oldVal) {
+                    hasOldVal = true;
+                    targetCol = allowedKeys[keyIdx]; // 찾은 컬럼명 기억
+                    break;
+                }
+            }
+
+            // 조건도 다 맞고, 바꿀 기존값도 존재하면 수정 명단에 추가
+            if (hasOldVal) {
+                updateTargets.push({ rowIndex: r, colName: targetCol });
             }
         }
 
-        if(!targetRows || targetRows.length === 0) {
-            return alert("그리드의 어떤 컬럼에서도 '" + oldVal + "' 데이터를 찾을 수 없습니다.");
+        if (updateTargets.length === 0) {
+            var condMsg = conditions.length > 0 ? "조건(" + conditions.join(", ") + ")을 만족하는 " : "";
+            return alert("그리드에서 " + condMsg + "'" + oldVal + "' 데이터를 찾을 수 없습니다.");
         }
 
-        var updateCount = 0;
-        
-        for(var k = 0; k < targetRows.length; k++) {
-            var rowIndex = targetRows[k].getIndex();
-            dataSet.setValue(rowIndex, targetCol, newVal);
-            updateCount++;
+        // 5. 조건에 맞는 행들 일괄 수정 적용
+        for(var k = 0; k < updateTargets.length; k++) {
+            var targetInfo = updateTargets[k];
+            dataSet.setValue(targetInfo.rowIndex, targetInfo.colName, newVal);
         }
         
         app.getContainer().redraw();
-        alert(updateCount + "건의 데이터가 '" + newVal + "'(으)로 변경되었습니다.");
+        alert(updateTargets.length + "건의 데이터가 '" + newVal + "'(으)로 변경되었습니다.");
         
         if(logCtrl) {
-            logCtrl.value = "✅ 변경 완료! 총 " + updateCount + "건 수정됨.";
+            logCtrl.value = "✅ 다중 조건 변경 완료! 총 " + updateTargets.length + "건 수정됨.";
             app.getContainer().redraw();
         }
 

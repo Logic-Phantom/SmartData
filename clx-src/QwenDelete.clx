@@ -16,7 +16,7 @@
         <cl:datarowlist>
           <cl:datarow>
             <cl:datavalue columnname="reqDate">reqDate1</cl:datavalue>
-            <cl:datavalue columnname="clientName">clientName1</cl:datavalue>
+            <cl:datavalue columnname="clientName"><![CDATA[앰무새]]></cl:datavalue>
             <cl:datavalue columnname="itemName">itemName1</cl:datavalue>
             <cl:datavalue columnname="orderCount">orderCount1</cl:datavalue>
             <cl:datavalue columnname="food"><![CDATA[짜장면]]></cl:datavalue>
@@ -51,7 +51,7 @@
           </cl:datarow>
           <cl:datarow>
             <cl:datavalue columnname="reqDate">reqDate6</cl:datavalue>
-            <cl:datavalue columnname="clientName">clientName6</cl:datavalue>
+            <cl:datavalue columnname="clientName"><![CDATA[하마]]></cl:datavalue>
             <cl:datavalue columnname="itemName">itemName6</cl:datavalue>
             <cl:datavalue columnname="orderCount">orderCount6</cl:datavalue>
             <cl:datavalue columnname="food"><![CDATA[볶음밥]]></cl:datavalue>

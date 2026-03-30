@@ -54,8 +54,132 @@ function onBodyLoad(e){
         console.error("❌ AI 초기화 실패:", error);
     });
 }
+///*
+// * "스마트 그리드 삭제" 버튼 클릭 이벤트 (순수 텍스트 추출 + 다중 행 일괄 삭제)
+// */
+//async function onBtnSmartGridDeleteClick(e) {
+//    var rawText = app.lookup("txaUserInput").value; 
+//    if (!rawText) return alert("삭제할 내용을 텍스트로 입력해주세요.");
+//
+//    if (!globalAIEngine) {
+//        return alert("AI가 아직 예열 중입니다. 상단 로그를 확인해주세요.");
+//    }
+//
+//    var grid = app.lookup("grd1"); 
+//    var dataSet = grid.dataSet; 
+//    var headers = dataSet.getHeaders(); 
+//    
+//    // 전체 컬럼 목록 추출 (JS 검색용)
+//    var allowedKeys = [];
+//    for(var i = 0; i < headers.length; i++) {
+//        allowedKeys.push(headers[i].getName());
+//    }
+//
+//    // ⭐ 파이프(|)도 필요 없는 초간단 삭제 타겟 추출 프롬프트
+//// ⭐ '데이터' 같은 쓰레기 단어를 강제로 필터링하는 초강력 삭제 프롬프트
+//    var systemPrompt = `당신은 사용자의 문장에서 '삭제할 실제 대상(명사)' 딱 하나만 남기고 나머지 모든 단어를 버리는 텍스트 필터입니다.
+//						인사말이나 기호 없이 오직 단어 1개만 출력하세요.
+//						
+//						[🚨 절대 규칙 🚨]
+//						1. 아래의 불용어(쓰레기 단어)가 문장에 포함되어 있다면 완벽하게 지워버리세요.
+//						   - 🗑️ 버릴 단어들: "데이터", "삭제", "지워", "제거", "해", "줘", "을", "를", "은", "는", "추가"
+//						2. 불용어를 모두 버리고 남은 '순수한 핵심 명사' 딱 하나만 출력하세요. 공백도 없어야 합니다.
+//						
+//						[필터링 예시] (반드시 이 패턴을 완벽히 따를 것)
+//						입력: "[임의의_명사] 데이터 삭제"
+//						출력: [임의의_명사]
+//						
+//						입력: "[핵심_타겟]을 지워줘"
+//						출력: [핵심_타겟]
+//						
+//						입력: "[대상_단어]데이터 삭제해" (띄어쓰기가 없어도 불용어는 버려야 함)
+//						출력: [대상_단어]
+//						
+//						이제 위 규칙에 따라 아래 문장에서 쓰레기 단어를 모두 버리고, 남은 알맹이 단어 하나만 딱 출력하세요.`;
+//
+//    try {
+//        console.log("🚀 백그라운드 AI 삭제 조건 분석 시작...");
+//        var logCtrl = app.lookup("optLog");
+//        
+//        const chunks = await globalAIEngine.chat.completions.create({
+//            messages: [
+//                { role: "system", content: systemPrompt },
+//                { role: "user", content: rawText }
+//            ],
+//            temperature: 0.0, // 창의성 0% (복사/붙여넣기 강제)
+//            stream: true 
+//        });
+//
+//        let fullReply = "";
+//        
+//        for await (const chunk of chunks) {
+//            const content = chunk.choices[0]?.delta?.content || "";
+//            fullReply += content;
+//            if(logCtrl) {
+//                logCtrl.value = fullReply; 
+//                app.getContainer().redraw();
+//            }
+//        }
+//
+//        console.log("✅ 스트리밍 완료. 삭제 텍스트 파싱 시작...");
+//
+//        // 3. 단일 문자열 정제
+//        var targetVal = fullReply.replace(/`/g, "").trim(); 
+//
+//        if(!targetVal) {
+//            return alert("삭제할 대상을 명확히 분리하지 못했습니다. 응답: " + fullReply);
+//        }
+//
+//        console.log("🔍 AI 텍스트 추출 완료 -> 삭제 대상:", targetVal);
+//
+//        // 4. JS 전체 컬럼 자동 탐색
+//        var targetRows = [];
+//        var targetCol = "";
+//        
+//        for(var c = 0; c < allowedKeys.length; c++) {
+//            var searchCol = allowedKeys[c];
+//            var expr = searchCol + " == '" + targetVal + "'";
+//            var foundRows = dataSet.findAllRow(expr);
+//            
+//            if(foundRows && foundRows.length > 0) {
+//                targetRows = foundRows;
+//                targetCol = searchCol;
+//                console.log("💡 컬럼 스캔 완료! '" + targetCol + "' 컬럼에서 삭제 대상 발견.");
+//                break; 
+//            }
+//        }
+//
+//        if(!targetRows || targetRows.length === 0) {
+//            return alert("그리드의 어떤 컬럼에서도 '" + targetVal + "' 데이터를 찾을 수 없어 삭제하지 못했습니다.");
+//        }
+//
+//        // ⭐ 5. 알려주신 delete API 적용 (배열을 이용한 일괄 삭제)
+//        var rowIndices = []; // 인덱스를 담을 배열
+//        
+//        for(var k = 0; k < targetRows.length; k++) {
+//            rowIndices.push(targetRows[k].getIndex());
+//        }
+//        
+//        // 인덱스 배열을 통째로 넘겨서 한 번에 삭제!
+//        grid.deleteRow(rowIndices);
+//        
+//        // 화면 갱신
+//        app.getContainer().redraw();
+//        alert(rowIndices.length + "건의 '" + targetVal + "' 데이터가 삭제되었습니다.");
+//        
+//        if(logCtrl) {
+//            logCtrl.value = "✅ 삭제 완료! 총 " + rowIndices.length + "건 제거됨.";
+//            app.getContainer().redraw();
+//        }
+//
+//    } catch(error) {
+//        console.error("❌ 처리 오류:", error);
+//        alert("분석 중 오류가 발생했습니다. 콘솔을 확인하세요.");
+//    }
+//}
+
 /*
- * "스마트 그리드 삭제" 버튼 클릭 이벤트 (순수 텍스트 추출 + 다중 행 일괄 삭제)
+ * "스마트 그리드 삭제" 버튼 클릭 이벤트 (다중 조건 AND 검색 + JS 풀스캔)
  */
 async function onBtnSmartGridDeleteClick(e) {
     var rawText = app.lookup("txaUserInput").value; 
@@ -69,36 +193,40 @@ async function onBtnSmartGridDeleteClick(e) {
     var dataSet = grid.dataSet; 
     var headers = dataSet.getHeaders(); 
     
-    // 전체 컬럼 목록 추출 (JS 검색용)
+    // 전체 컬럼 목록 추출
     var allowedKeys = [];
     for(var i = 0; i < headers.length; i++) {
         allowedKeys.push(headers[i].getName());
     }
 
-    // ⭐ 파이프(|)도 필요 없는 초간단 삭제 타겟 추출 프롬프트
-// ⭐ '데이터' 같은 쓰레기 단어를 강제로 필터링하는 초강력 삭제 프롬프트
-    var systemPrompt = `당신은 사용자의 문장에서 '삭제할 실제 대상(명사)' 딱 하나만 남기고 나머지 모든 단어를 버리는 텍스트 필터입니다.
-						인사말이나 기호 없이 오직 단어 1개만 출력하세요.
-						
-						[🚨 절대 규칙 🚨]
-						1. 아래의 불용어(쓰레기 단어)가 문장에 포함되어 있다면 완벽하게 지워버리세요.
-						   - 🗑️ 버릴 단어들: "데이터", "삭제", "지워", "제거", "해", "줘", "을", "를", "은", "는", "추가"
-						2. 불용어를 모두 버리고 남은 '순수한 핵심 명사' 딱 하나만 출력하세요. 공백도 없어야 합니다.
-						
-						[필터링 예시] (반드시 이 패턴을 완벽히 따를 것)
-						입력: "[임의의_명사] 데이터 삭제"
-						출력: [임의의_명사]
-						
-						입력: "[핵심_타겟]을 지워줘"
-						출력: [핵심_타겟]
-						
-						입력: "[대상_단어]데이터 삭제해" (띄어쓰기가 없어도 불용어는 버려야 함)
-						출력: [대상_단어]
-						
-						이제 위 규칙에 따라 아래 문장에서 쓰레기 단어를 모두 버리고, 남은 알맹이 단어 하나만 딱 출력하세요.`;
+    // ⭐ 다중 조건 추출 프롬프트: 쓰레기는 버리고 핵심 조건들만 | 로 연결
+// ⭐ 띄어쓰기가 없어도 기계처럼 핵심 단어만 발라내는 극한의 예시 주입 프롬프트
+// ⭐ 오타 수정 절대 금지! 원본 글자 100% 복사 강제 프롬프트
+    var systemPrompt = `당신은 사용자의 문장에서 오직 '핵심 명사'만 추출하는 텍스트 필터입니다.
+인사말이나 부연 설명 없이 오직 파이프(|)로 연결된 결과만 딱 한 줄 출력하세요.
+
+[🚨 절대 지켜야 할 필터링 규칙 🚨]
+1. 원본 글자 100% 유지 (오타 수정 절대 금지): 사용자가 입력한 단어에 오타가 있거나 이상한 단어라도 절대 맞춤법을 고치지 마세요. 사용자가 적은 글자 그대로(Copy) 가져와야 합니다.
+2. 아래 단어와 조사는 문장에 띄어쓰기 없이 붙어있어도 완벽하게 찾아내서 버리세요.
+   - 버릴 단어: "데이터", "데이터중", "데이터중에", "중", "중에", "삭제", "지워", "제거", "의", "은", "는", "이", "가", "을", "를"
+3. 쓰레기 단어를 모두 버리고 남은 핵심 명사만 추출하세요.
+4. 명사가 여러 개면 파이프(|)로 연결하고, 한 개면 하나만 출력하세요. 
+5. 쌍따옴표("")나 대괄호([]) 같은 기호는 절대 쓰지 마세요.
+
+[필터링 훈련 예시] (반드시 이 패턴을 똑같이 모방할 것)
+입력: "가나다데이터중 마바사 데이터 삭제"
+출력: 가나다|마바사
+
+입력: "임의의오타항목A의 데이터 중에 임의의항목B 데이터 지워"
+출력: 임의의오타항목A|임의의항목B
+
+입력: "테스트값데이터 삭제"
+출력: 테스트값
+
+이제 위 규칙과 훈련 예시 패턴을 엄격히 적용하여, 아래 텍스트에서 불용어를 완벽히 제거하고 남은 핵심 명사를 '절대 맞춤법을 수정하지 말고' 파이프(|)로 연결해 출력하세요.`;
 
     try {
-        console.log("🚀 백그라운드 AI 삭제 조건 분석 시작...");
+        console.log("🚀 백그라운드 AI 다중 조건 분석 시작...");
         var logCtrl = app.lookup("optLog");
         
         const chunks = await globalAIEngine.chat.completions.create({
@@ -106,7 +234,8 @@ async function onBtnSmartGridDeleteClick(e) {
                 { role: "system", content: systemPrompt },
                 { role: "user", content: rawText }
             ],
-            temperature: 0.0, // 창의성 0% (복사/붙여넣기 강제)
+            temperature: 0.0, // 창의성 0% 강제
+            max_tokens: 30,   // GPU 과부하 방지 (단어 몇 개만 뽑고 즉시 종료)
             stream: true 
         });
 
@@ -121,54 +250,74 @@ async function onBtnSmartGridDeleteClick(e) {
             }
         }
 
-        console.log("✅ 스트리밍 완료. 삭제 텍스트 파싱 시작...");
+        console.log("✅ 스트리밍 완료. 조건 파싱 시작...");
 
-        // 3. 단일 문자열 정제
-        var targetVal = fullReply.replace(/`/g, "").trim(); 
+        // 3. 다중 조건 문자열 정제 및 배열화
+        var cleanText = fullReply.replace(/`/g, "").trim(); 
+        
+        // 파이프(|)로 쪼개고 앞뒤 공백을 자른 뒤, 빈 문자열이 아닌 것만 배열로 만듭니다.
+        var conditions = cleanText.split("|").map(function(item) { 
+            return item.trim(); 
+        }).filter(function(item) { 
+            return item !== ""; 
+        });
 
-        if(!targetVal) {
-            return alert("삭제할 대상을 명확히 분리하지 못했습니다. 응답: " + fullReply);
+        if (conditions.length === 0) {
+            return alert("삭제할 핵심 조건을 명확히 추출하지 못했습니다. 응답: " + fullReply);
         }
 
-        console.log("🔍 AI 텍스트 추출 완료 -> 삭제 대상:", targetVal);
+        console.log("🔍 AI 조건 추출 완료 -> 타겟 목록:", conditions);
 
-        // 4. JS 전체 컬럼 자동 탐색
-        var targetRows = [];
-        var targetCol = "";
+        // ⭐ 4. JS 다중 조건(AND) 자동 탐색 로직
+        var rowCount = dataSet.getRowCount();
+        var rowIndices = []; // 지울 행 번호를 담을 킬구역(Kill Zone) 배열
         
-        for(var c = 0; c < allowedKeys.length; c++) {
-            var searchCol = allowedKeys[c];
-            var expr = searchCol + " == '" + targetVal + "'";
-            var foundRows = dataSet.findAllRow(expr);
+        // 그리드의 0번째 행부터 끝까지 하나씩 스캔합니다.
+        for (var r = 0; r < rowCount; r++) {
+            var rowData = dataSet.getRowData(r); 
+            var isMatchAll = true; // 이 행이 모든 조건을 만족하는지 체크하는 플래그
             
-            if(foundRows && foundRows.length > 0) {
-                targetRows = foundRows;
-                targetCol = searchCol;
-                console.log("💡 컬럼 스캔 완료! '" + targetCol + "' 컬럼에서 삭제 대상 발견.");
-                break; 
+            // 추출된 조건(예: ["짜장면", "사자"])을 하나씩 검사
+            for (var c = 0; c < conditions.length; c++) {
+                var keyword = conditions[c];
+                var hasKeywordInAnyColumn = false;
+                
+                // 현재 행의 모든 컬럼을 뒤져서 이 조건 단어가 하나라도 있는지 확인
+                for (var keyIdx = 0; keyIdx < allowedKeys.length; keyIdx++) {
+                    var colName = allowedKeys[keyIdx];
+                    var cellValue = rowData[colName];
+                    
+                    if (cellValue && String(cellValue) === keyword) {
+                        hasKeywordInAnyColumn = true;
+                        break; // 하나라도 찾았으면 다음 조건 검사로 패스
+                    }
+                }
+                
+                // 만약 이 행에 특정 조건(keyword)이 단 하나도 없다면?
+                if (!hasKeywordInAnyColumn) {
+                    isMatchAll = false; // 이 행은 조건 불일치! 탈락!
+                    break; 
+                }
+            }
+            
+            // 모든 조건을 다 가지고 있는(isMatchAll == true) 행만 삭제 명단에 올립니다.
+            if (isMatchAll) {
+                rowIndices.push(r);
             }
         }
 
-        if(!targetRows || targetRows.length === 0) {
-            return alert("그리드의 어떤 컬럼에서도 '" + targetVal + "' 데이터를 찾을 수 없어 삭제하지 못했습니다.");
+        if (rowIndices.length === 0) {
+            return alert("조건 (" + conditions.join(" AND ") + ")을 모두 만족하는 데이터를 찾을 수 없습니다.");
         }
 
-        // ⭐ 5. 알려주신 delete API 적용 (배열을 이용한 일괄 삭제)
-        var rowIndices = []; // 인덱스를 담을 배열
-        
-        for(var k = 0; k < targetRows.length; k++) {
-            rowIndices.push(targetRows[k].getIndex());
-        }
-        
-        // 인덱스 배열을 통째로 넘겨서 한 번에 삭제!
+        // 5. 조건에 맞는 행들 일괄 삭제
         grid.deleteRow(rowIndices);
         
-        // 화면 갱신
         app.getContainer().redraw();
-        alert(rowIndices.length + "건의 '" + targetVal + "' 데이터가 삭제되었습니다.");
+        alert(rowIndices.length + "건의 데이터가 삭제되었습니다.");
         
         if(logCtrl) {
-            logCtrl.value = "✅ 삭제 완료! 총 " + rowIndices.length + "건 제거됨.";
+            logCtrl.value = "✅ 조건 삭제 완료! 총 " + rowIndices.length + "건 제거됨.";
             app.getContainer().redraw();
         }
 
