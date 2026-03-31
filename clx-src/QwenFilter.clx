@@ -1,0 +1,109 @@
+<?xml version="1.1" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:cl="http://tomatosystem.co.kr/cleopatra" xmlns:std="http://tomatosystem.co.kr/cleopatra/studio" std:sid="html-219cac54" version="1.0.5980">
+  <head std:sid="head-6b5e1351">
+    <screen std:sid="screen-88141789" id="default" name="default" width="1024px" height="768px"/>
+    <screen std:sid="screen-e0e72cf6" id="tablet" name="tablet" width="500px" height="667px"/>
+    <screen std:sid="screen-cc148320" id="mobile" name="mobile" width="350px" height="525px"/>
+    <cl:model std:sid="model-95369445">
+      <cl:dataset std:sid="d-set-93de1f2f" id="dsOrder">
+        <cl:datacolumnlist>
+          <cl:datacolumn std:sid="d-column-65789689" name="reqDate"/>
+          <cl:datacolumn std:sid="d-column-a4059322" name="clientName"/>
+          <cl:datacolumn std:sid="d-column-e9923d86" name="itemName"/>
+          <cl:datacolumn std:sid="d-column-197cea58" name="orderCount"/>
+          <cl:datacolumn std:sid="d-column-385fa9bc" name="food"/>
+        </cl:datacolumnlist>
+      </cl:dataset>
+      <cl:dataset std:sid="d-set-61dd2250" id="ds1">
+        <cl:datacolumnlist>
+          <cl:datacolumn std:sid="d-column-db536372" name="column1" datatype="number"/>
+          <cl:datacolumn std:sid="d-column-98386b03" name="column2"/>
+          <cl:datacolumn std:sid="d-column-d8fbcb92" name="column3"/>
+        </cl:datacolumnlist>
+        <cl:datarowlist>
+          <cl:datarow>
+            <cl:datavalue columnname="column1">1</cl:datavalue>
+            <cl:datavalue columnname="column2">column21</cl:datavalue>
+            <cl:datavalue columnname="column3"><![CDATA[짜장면]]></cl:datavalue>
+          </cl:datarow>
+          <cl:datarow>
+            <cl:datavalue columnname="column1">2</cl:datavalue>
+            <cl:datavalue columnname="column2">column22</cl:datavalue>
+            <cl:datavalue columnname="column3">column32</cl:datavalue>
+          </cl:datarow>
+          <cl:datarow>
+            <cl:datavalue columnname="column1">3</cl:datavalue>
+            <cl:datavalue columnname="column2">column23</cl:datavalue>
+            <cl:datavalue columnname="column3">column33</cl:datavalue>
+          </cl:datarow>
+          <cl:datarow>
+            <cl:datavalue columnname="column1">4</cl:datavalue>
+            <cl:datavalue columnname="column2">column24</cl:datavalue>
+            <cl:datavalue columnname="column3">column34</cl:datavalue>
+          </cl:datarow>
+          <cl:datarow>
+            <cl:datavalue columnname="column1">5</cl:datavalue>
+            <cl:datavalue columnname="column2">column25</cl:datavalue>
+            <cl:datavalue columnname="column3">column35</cl:datavalue>
+          </cl:datarow>
+          <cl:datarow>
+            <cl:datavalue columnname="column1">6</cl:datavalue>
+            <cl:datavalue columnname="column2">column26</cl:datavalue>
+            <cl:datavalue columnname="column3">column36</cl:datavalue>
+          </cl:datarow>
+          <cl:datarow>
+            <cl:datavalue columnname="column1">7</cl:datavalue>
+            <cl:datavalue columnname="column2">column27</cl:datavalue>
+            <cl:datavalue columnname="column3">column37</cl:datavalue>
+          </cl:datarow>
+        </cl:datarowlist>
+      </cl:dataset>
+      <cl:datamap std:sid="d-map-ce717197" id="dmSample">
+        <cl:datacolumnlist>
+          <cl:datacolumn std:sid="d-column-60092162" name="reqDate" datatype="string" displayonly="false"/>
+          <cl:datacolumn std:sid="d-column-e2efee83" name="clientName" datatype="string" displayonly="false"/>
+          <cl:datacolumn std:sid="d-column-bbb22fd5" name="itemName" datatype="string" displayonly="false"/>
+          <cl:datacolumn std:sid="d-column-8973d723" name="orderCount" datatype="string" displayonly="false"/>
+          <cl:datacolumn std:sid="d-column-33298af9" name="food" datatype="string" displayonly="false"/>
+        </cl:datacolumnlist>
+      </cl:datamap>
+    </cl:model>
+    <cl:appspec/>
+  </head>
+  <body std:sid="body-6ba178eb">
+    <cl:listener std:sid="listener-a901b706" name="load" handler="onBodyLoad"/>
+    <cl:button std:sid="button-6c1089be" value="Button">
+      <cl:listener std:sid="listener-2a21208f" name="click" handler="onBtnSmartSearchClick"/>
+      <cl:xylayoutdata std:sid="xyl-data-5dd2c9be" top="38px" left="685px" width="144px" height="40px" horizontalAnchor="LEFT" verticalAnchor="TOP"/>
+    </cl:button>
+    <cl:textarea std:sid="t-area-79dfc464" id="txaUserInput" value="오늘 날짜로 임채명 데이터추가">
+      <cl:xylayoutdata std:sid="xyl-data-9558ad9f" top="10px" left="10px" width="553px" height="137px" horizontalAnchor="LEFT" verticalAnchor="TOP"/>
+    </cl:textarea>
+    <cl:output std:sid="output-d8f55b37" id="optLog" value="Output" unselectable="false">
+      <cl:xylayoutdata std:sid="xyl-data-52fe1ab6" top="523px" left="13px" width="873px" height="1314px" horizontalAnchor="LEFT" verticalAnchor="TOP"/>
+    </cl:output>
+    <cl:grid std:sid="grid-ffc50c80" id="grd1" datasetid="ds1">
+      <cl:xylayoutdata std:sid="xyl-data-22250a8e" top="206px" left="46px" width="796px" height="224px" horizontalAnchor="LEFT" verticalAnchor="TOP"/>
+      <cl:gridcolumn std:sid="g-column-d61b138b"/>
+      <cl:gridcolumn std:sid="g-column-e863fccb"/>
+      <cl:gridcolumn std:sid="g-column-2f63701f"/>
+      <cl:gridheader std:sid="gh-band-d35e67cf">
+        <cl:gridrow std:sid="g-row-0a2c6c62" height="24px"/>
+        <cl:gridcell std:sid="gh-cell-58f6a9e3" rowindex="0" colindex="0" targetcolumnname="column1" sortable="false" filterable="false" text="column1"/>
+        <cl:gridcell std:sid="gh-cell-e848c42e" rowindex="0" colindex="1" targetcolumnname="column2" sortable="false" filterable="false" text="column2"/>
+        <cl:gridcell std:sid="gh-cell-0f16ed44" rowindex="0" colindex="2" targetcolumnname="column3" sortable="false" filterable="false" text="column3"/>
+      </cl:gridheader>
+      <cl:griddetail std:sid="gd-band-90f1294e">
+        <cl:gridrow std:sid="g-row-e29c4bd7" height="24px"/>
+        <cl:gridcell std:sid="gd-cell-cc772bbc" rowindex="0" colindex="0" columnname="column1"/>
+        <cl:gridcell std:sid="gd-cell-bb6a4f19" rowindex="0" colindex="1" columnname="column2"/>
+        <cl:gridcell std:sid="gd-cell-0664c91f" rowindex="0" colindex="2" columnname="column3"/>
+      </cl:griddetail>
+    </cl:grid>
+    <cl:xylayout std:sid="xylayout-39f3558e"/>
+  </body>
+  <std:studiosetting>
+    <std:hruler/>
+    <std:vruler/>
+  </std:studiosetting>
+</html>
