@@ -77,31 +77,58 @@
 			    const thisMonth = today.slice(0, 7);
 			    const thisYear  = now.getFullYear();
 
-			    // ⭐ 추가: "2월 2일", "12월 31일" → "2026-02-02", "2026-12-31"
+			    // ⭐ 1순위: "2020년 2월 3일" → "2020-02-03"  (년+월+일 전체 명시)
+			    text = text.replace(/(\d{2,4})년\s*(\d{1,2})월\s*(\d{1,2})일/g, function(_, y, m, d) {
+			        return y + "-" + String(m).padStart(2, "0") + "-" + String(d).padStart(2, "0");
+			    });
+
+			    // ⭐ 2순위: "2020년 2월" → "2020-02"  (년+월만)
+			    text = text.replace(/(\d{2,4})년\s*(\d{1,2})월/g, function(_, y, m) {
+			        return y + "-" + String(m).padStart(2, "0");
+			    });
+
+			    // ⭐ 3순위: "2020년" 단독 → "2020"
+			    text = text.replace(/(\d{2,4})년/g, function(_, y) {
+			        return y;
+			    });
+
+			    // ⭐ 4순위: "2월 2일" → "2026-02-02"  (년 없이 월+일)
 			    text = text.replace(/(\d{1,2})월\s*(\d{1,2})일/g, function(_, m, d) {
 			        return thisYear + "-" + String(m).padStart(2, "0") + "-" + String(d).padStart(2, "0");
 			    });
 
-			    // ⭐ 추가: "3월" 단독 (뒤에 숫자 없는 경우) → "2026-03"
+			    // ⭐ 5순위: "3월" 단독 (뒤에 숫자 없는 경우) → "2026-03"
 			    text = text.replace(/(\d{1,2})월(?!\s*\d)/g, function(_, m) {
 			        return thisYear + "-" + String(m).padStart(2, "0");
 			    });
 
-			    return text
-			        // 복합 표현 먼저 (긴 것 우선 매칭)
+			    // ⭐ 점 구분 날짜 → 하이픈 통일 "2026.02.10" → "2026-02-10"
+			    text = text.replace(/(\d{4})\.(\d{2})\.(\d{2})/g, function(_, y, m, d) {
+			        return y + "-" + m + "-" + d;
+			    });
+
+			    // ⭐ 한국어 상대 날짜 치환 (오늘/내일/어제 등)
+			    text = text
 			        .replace(/오늘\s*날짜/g,  today)
 			        .replace(/현재\s*날짜/g,  today)
 			        .replace(/현재\s*일자/g,  today)
 			        .replace(/오늘\s*일자/g,  today)
 			        .replace(/이번\s*달/g,    thisMonth)
 			        .replace(/이번\s*월/g,    thisMonth)
-			        // 단독 표현
 			        .replace(/오늘/g,         today)
 			        .replace(/현재/g,         today)
 			        .replace(/어제/g,         yesterday)
 			        .replace(/내일/g,         tomorrow)
 			        .replace(/올해/g,         String(thisYear))
 			        .replace(/금년/g,         String(thisYear));
+
+			    // ⭐ 맨 마지막: 범위 탐지 — 모든 날짜 치환 완료 후 실행해야 "오늘~내일"도 처리됨
+			    // 지원 구분자: ~ ～(전각)
+			    text = text.replace(/(\d{4}-\d{2}-\d{2})\s*[~～]\s*(\d{4}-\d{2}-\d{2})/g, function(_, s, e) {
+			        return "__RANGE_START__:" + s + " __RANGE_END__:" + e;
+			    });
+
+			    return text;
 			}
 
 
@@ -192,6 +219,14 @@
 			    // ⭐ 날짜 표현을 AI 이전에 JS에서 먼저 실제 값으로 치환
 			    var processedText = preprocessDateExpressions(rawText);
 			    console.log("📝 전처리된 입력:", processedText);
+
+			    // ⭐ 날짜 범위 마커를 텍스트에서 추출하고 AI 입력에서는 제거
+			    var extractedRanges = [];
+			    processedText = processedText.replace(/__RANGE_START__:([\d-]+)\s+__RANGE_END__:([\d-]+)/g, function(_, s, e) {
+			        extractedRanges.push({ start: s, end: e });
+			        console.log("📅 범위 추출:", s, "~", e);
+			        return ""; // AI에게는 범위 텍스트 제거 (혼란 방지)
+			    }).trim();
 
 			    var dataMap  = app.lookup("dmSample");
 			    var colNames = dataMap.getColumnNames();
@@ -296,6 +331,37 @@
 			            dataMap.setValue(resolvedCol, targetVal);
 			            updateCount++;
 			            console.log("✏️ DataMap 세팅: " + resolvedCol + " = " + targetVal);
+			        }
+
+			        // ⭐ 날짜 범위 → 시작일·종료일 컬럼 자동 매핑
+			        if (extractedRanges.length > 0) {
+			            // 시작일 컬럼 후보: start·from·begin·str·frm + Date/Dt/Day/일자 포함
+			            var startColRe = /start|from|begin|str|frm|시작/i;
+			            // 종료일 컬럼 후보: end·to·fin|close·until·exp + Date/Dt/Day/일자 포함
+			            var endColRe   = /end|to|fin|close|until|exp|마감|종료/i;
+
+			            var startDateCol = colNames.find(function(c) { return startColRe.test(c); })
+			                            || colNames.find(function(c) { return /date|dt|day|일/i.test(c); })
+			                            || null;
+			            var endDateCol   = colNames.find(function(c) { return endColRe.test(c); })
+			                            || colNames.filter(function(c) { return /date|dt|day|일/i.test(c); })[1]
+			                            || null;
+
+			            extractedRanges.forEach(function(range) {
+			                if (startDateCol) {
+			                    dataMap.setValue(startDateCol, range.start);
+			                    updateCount++;
+			                    console.log("✏️ 범위 시작일 세팅:", startDateCol, "=", range.start);
+			                }
+			                if (endDateCol) {
+			                    dataMap.setValue(endDateCol, range.end);
+			                    updateCount++;
+			                    console.log("✏️ 범위 종료일 세팅:", endDateCol, "=", range.end);
+			                }
+			                if (!startDateCol && !endDateCol) {
+			                    skipped.push("범위(" + range.start + "~" + range.end + "): 매칭 컬럼 없음");
+			                }
+			            });
 			        }
 
 			        app.getContainer().redraw();
