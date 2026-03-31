@@ -1,0 +1,94 @@
+<?xml version="1.1" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:cl="http://tomatosystem.co.kr/cleopatra" xmlns:std="http://tomatosystem.co.kr/cleopatra/studio" std:sid="html-219cac54" version="1.0.5980">
+  <head std:sid="head-6b5e1351">
+    <screen std:sid="screen-88141789" id="default" name="default" width="1024px" height="768px"/>
+    <screen std:sid="screen-e0e72cf6" id="tablet" name="tablet" width="500px" height="667px"/>
+    <screen std:sid="screen-cc148320" id="mobile" name="mobile" width="350px" height="525px"/>
+    <cl:model std:sid="model-95369445">
+      <cl:dataset std:sid="d-set-93de1f2f" id="dsOrder">
+        <cl:datacolumnlist>
+          <cl:datacolumn std:sid="d-column-65789689" name="reqDate"/>
+          <cl:datacolumn std:sid="d-column-a4059322" name="clientName"/>
+          <cl:datacolumn std:sid="d-column-e9923d86" name="itemName"/>
+          <cl:datacolumn std:sid="d-column-197cea58" name="orderCount"/>
+          <cl:datacolumn std:sid="d-column-385fa9bc" name="food"/>
+        </cl:datacolumnlist>
+      </cl:dataset>
+      <cl:datamap std:sid="d-map-ce717197" id="dmSample">
+        <cl:datacolumnlist>
+          <cl:datacolumn std:sid="d-column-60092162" name="reqDate" datatype="string" displayonly="false"/>
+          <cl:datacolumn std:sid="d-column-e2efee83" name="clientName" datatype="string" displayonly="false"/>
+          <cl:datacolumn std:sid="d-column-bbb22fd5" name="itemName" datatype="string" displayonly="false"/>
+          <cl:datacolumn std:sid="d-column-8973d723" name="orderCount" datatype="string" displayonly="false"/>
+          <cl:datacolumn std:sid="d-column-33298af9" name="food" datatype="string" displayonly="false"/>
+        </cl:datacolumnlist>
+      </cl:datamap>
+    </cl:model>
+    <cl:appspec/>
+  </head>
+  <body std:sid="body-6ba178eb">
+    <cl:listener std:sid="listener-a901b706" name="load" handler="onBodyLoad"/>
+    <cl:button std:sid="button-6c1089be" value="Button">
+      <cl:listener std:sid="listener-2a21208f" name="click" handler="onBtnSmartMapFillClick"/>
+      <cl:xylayoutdata std:sid="xyl-data-5dd2c9be" top="38px" left="685px" width="144px" height="40px" horizontalAnchor="LEFT" verticalAnchor="TOP"/>
+    </cl:button>
+    <cl:textarea std:sid="t-area-79dfc464" id="txaUserInput" value="오늘 날짜로 임채명 데이터추가">
+      <cl:xylayoutdata std:sid="xyl-data-9558ad9f" top="10px" left="10px" width="553px" height="137px" horizontalAnchor="LEFT" verticalAnchor="TOP"/>
+    </cl:textarea>
+    <cl:output std:sid="output-d8f55b37" id="optLog" value="Output" unselectable="false">
+      <cl:xylayoutdata std:sid="xyl-data-52fe1ab6" top="523px" left="13px" width="873px" height="1314px" horizontalAnchor="LEFT" verticalAnchor="TOP"/>
+    </cl:output>
+    <cl:group std:sid="group-a3a2d1cf" class="cl-form-group">
+      <cl:xylayoutdata std:sid="xyl-data-e8ceffdb" top="169px" left="13px" width="816px" height="313px" horizontalAnchor="LEFT" verticalAnchor="TOP"/>
+      <cl:output std:sid="output-176da841" value="reqDate" unselectable="false">
+        <cl:formdata std:sid="f-data-2309c1df" row="0" col="0"/>
+      </cl:output>
+      <cl:output std:sid="output-d51e67bf" value="clientName" unselectable="false">
+        <cl:formdata std:sid="f-data-884d5996" row="1" col="0"/>
+      </cl:output>
+      <cl:output std:sid="output-0c33beb1" value="itemame" unselectable="false">
+        <cl:formdata std:sid="f-data-9e723cb5" row="2" col="0"/>
+      </cl:output>
+      <cl:output std:sid="output-55afc2f3" value="orderCount" unselectable="false">
+        <cl:formdata std:sid="f-data-22099758" row="3" col="0"/>
+      </cl:output>
+      <cl:output std:sid="output-b416735d" value="food" unselectable="false">
+        <cl:formdata std:sid="f-data-75dd67bf" row="4" col="0"/>
+      </cl:output>
+      <cl:output std:sid="output-5f8bc206">
+        <cl:datamapbind property="value" datacontrolid="dmSample" columnname="reqDate"/>
+        <cl:formdata std:sid="f-data-696a9eb4" row="0" col="1"/>
+      </cl:output>
+      <cl:output std:sid="output-8a883a2e">
+        <cl:datamapbind property="value" datacontrolid="dmSample" columnname="clientName"/>
+        <cl:formdata std:sid="f-data-2c889053" row="1" col="1"/>
+      </cl:output>
+      <cl:output std:sid="output-d4c86bc7">
+        <cl:datamapbind property="value" datacontrolid="dmSample" columnname="itemName"/>
+        <cl:formdata std:sid="f-data-16a9fcf4" row="2" col="1"/>
+      </cl:output>
+      <cl:output std:sid="output-2d6f5cc5">
+        <cl:datamapbind property="value" datacontrolid="dmSample" columnname="orderCount"/>
+        <cl:formdata std:sid="f-data-49eef348" row="3" col="1"/>
+      </cl:output>
+      <cl:output std:sid="output-2bafe08a">
+        <cl:datamapbind property="value" datacontrolid="dmSample" columnname="food"/>
+        <cl:formdata std:sid="f-data-bc3b87e2" row="4" col="1"/>
+      </cl:output>
+      <cl:formlayout std:sid="f-layout-84a58cc9" scrollable="true" hspace="10px" vspace="10px" top-margin="5px" right-margin="5px" bottom-margin="5px" left-margin="5px" hseparatorwidth="1" hseparatortype="BY_CLASS" vseparatorwidth="1" vseparatortype="BY_CLASS">
+        <cl:rows length="25" unit="PIXEL"/>
+        <cl:rows length="25" unit="PIXEL"/>
+        <cl:rows length="25" unit="PIXEL"/>
+        <cl:rows length="25" unit="PIXEL"/>
+        <cl:rows length="1" unit="FRACTION"/>
+        <cl:columns length="100" unit="PIXEL" shadetype="BY_CLASS"/>
+        <cl:columns length="1" unit="FRACTION"/>
+      </cl:formlayout>
+    </cl:group>
+    <cl:xylayout std:sid="xylayout-39f3558e"/>
+  </body>
+  <std:studiosetting>
+    <std:hruler/>
+    <std:vruler/>
+  </std:studiosetting>
+</html>
