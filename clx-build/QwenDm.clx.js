@@ -75,7 +75,17 @@
 			    const yesterday = fmtDate(new Date(now - 86400000));
 			    const tomorrow  = fmtDate(new Date(now + 86400000));
 			    const thisMonth = today.slice(0, 7);
-			    const thisYear  = String(now.getFullYear());
+			    const thisYear  = now.getFullYear();
+
+			    // ⭐ 추가: "2월 2일", "12월 31일" → "2026-02-02", "2026-12-31"
+			    text = text.replace(/(\d{1,2})월\s*(\d{1,2})일/g, function(_, m, d) {
+			        return thisYear + "-" + String(m).padStart(2, "0") + "-" + String(d).padStart(2, "0");
+			    });
+
+			    // ⭐ 추가: "3월" 단독 (뒤에 숫자 없는 경우) → "2026-03"
+			    text = text.replace(/(\d{1,2})월(?!\s*\d)/g, function(_, m) {
+			        return thisYear + "-" + String(m).padStart(2, "0");
+			    });
 
 			    return text
 			        // 복합 표현 먼저 (긴 것 우선 매칭)
@@ -90,9 +100,10 @@
 			        .replace(/현재/g,         today)
 			        .replace(/어제/g,         yesterday)
 			        .replace(/내일/g,         tomorrow)
-			        .replace(/올해/g,         thisYear)
-			        .replace(/금년/g,         thisYear);
+			        .replace(/올해/g,         String(thisYear))
+			        .replace(/금년/g,         String(thisYear));
 			}
+
 
 			// ─────────────────────────────────────────────────────────────────────────────
 			// 유틸 3: 금액 문자열 → 숫자 변환  "150만원" → "1500000"
@@ -122,20 +133,44 @@
 			}
 
 			function resolveColumn(predicted, colNames, threshold) {
-			    threshold = threshold || 0.5;
+			    threshold = threshold || 0.72;
 			    if (colNames.indexOf(predicted) !== -1) return predicted;
-			    const lower = predicted.toLowerCase();
-			    const exactCI = colNames.find(function(c) { return c.toLowerCase() === lower; });
+
+			    var lower = predicted.toLowerCase();
+
+			    // 2순위: 대소문자 무시 완전 일치
+			    var exactCI = colNames.find(function(c) { return c.toLowerCase() === lower; });
 			    if (exactCI) return exactCI;
-			    var best = null, bestScore = 0;
+
+			    // 3순위: ⭐ camelCase 토큰 공유 매칭
+			    // "userName" → ["user","name"] / "empName" → ["emp","name"] → "name" 공유 → 매칭
+			    function tokenize(s) {
+			        return s.replace(/([A-Z])/g, ' $1').trim().toLowerCase().split(/\s+/);
+			    }
+			    var predTokens = tokenize(predicted);
+			    var bestToken = null, bestTokenScore = 0;
 			    for (var i = 0; i < colNames.length; i++) {
-			        var score = calcSimilarity(predicted, colNames[i]);
-			        if (score > bestScore) { bestScore = score; best = colNames[i]; }
+			        var colTokens = tokenize(colNames[i]);
+			        var shared = predTokens.filter(function(t) { return colTokens.indexOf(t) !== -1 && t.length >= 3; });
+			        var score = shared.length / Math.max(predTokens.length, colTokens.length);
+			        if (score > bestTokenScore) { bestTokenScore = score; bestToken = colNames[i]; }
+			    }
+			    if (bestTokenScore > 0) {
+			        console.log('🔧 토큰 매칭: "' + predicted + '" → "' + bestToken + '" (공유토큰 ' + (bestTokenScore*100).toFixed(0) + '%)');
+			        return bestToken;
+			    }
+
+			    // 4순위: Levenshtein 철자 유사도 (threshold 이상만)
+			    var best = null, bestScore = 0;
+			    for (var j = 0; j < colNames.length; j++) {
+			        var sim = calcSimilarity(predicted, colNames[j]);
+			        if (sim > bestScore) { bestScore = sim; best = colNames[j]; }
 			    }
 			    if (bestScore >= threshold) {
-			        console.log('🔧 컬럼 보정: "' + predicted + '" → "' + best + '" (유사도 ' + (bestScore*100).toFixed(0) + '%)');
+			        console.log('🔧 철자 보정: "' + predicted + '" → "' + best + '" (유사도 ' + (bestScore*100).toFixed(0) + '%)');
 			        return best;
 			    }
+
 			    return null;
 			}
 
@@ -165,20 +200,26 @@
 			    var colHints = colNames.map(function(c) { return c + "(" + camelToWords(c) + ")"; }).join(", ");
 
 			    // ─── 소형 모델(0.5B)용 최소화 프롬프트 ──────────────────────
-			    // 규칙이 많을수록 0.5B 모델은 혼란 → 영어로 짧고 명확하게
+			    // ⭐ 예시 컬럼명을 실제 DataMap 컬럼에서 동적으로 뽑아 AI 혼란 방지
+			    var exampleDateCol  = colNames.find(function(c) { return /date|day|time|dt|일자|일시/i.test(c); }) || colNames[0];
+			    var exampleNameCol  = colNames.find(function(c) { return /name|nm|성명|이름/i.test(c); })         || colNames[1] || colNames[0];
+			    var fmtToday = (new Date()).getFullYear() + "-" +
+			        String((new Date()).getMonth()+1).padStart(2,"0") + "-" +
+			        String((new Date()).getDate()).padStart(2,"0");
+
 			    var systemPrompt =
 			        "Extract data from the user's Korean text and map to the most semantically similar column.\n\n" +
 			        "Available columns: " + colHints + "\n\n" +
 			        "Rules:\n" +
 			        "- Output ONLY lines in format: columnName|value\n" +
-			        "- Use exact column names from the list above\n" +
-			        "- Remove Korean particles (은/는/이/가/을/를/로) and filler words (넣어/추가/입력/해줘/해)\n" +
+			        "- ONLY use column names from the Available columns list above. Do NOT invent new column names.\n" +
+			        "- Remove Korean particles (은/는/이/가/을/를/로) and filler words (넣어/추가/입력/해줘/해/시작일/종료일)\n" +
 			        "- No explanations, no JSON, no markdown\n\n" +
-			        "Example:\n" +
-			        "Input: \"2026-03-31 홍길동 데이터 넣어줘\"\n" +
+			        "Example (column names below are from YOUR actual list):\n" +
+			        "Input: \"" + fmtToday + " 홍길동 데이터 넣어줘\"\n" +
 			        "Output:\n" +
-			        "regDate|2026-03-31\n" +
-			        "userName|홍길동";
+			        exampleDateCol + "|" + fmtToday + "\n" +
+			        exampleNameCol + "|홍길동";
 
 			    try {
 			        var logCtrl = app.lookup("optLog");
@@ -235,7 +276,7 @@
 			            var targetVal    = line.slice(pipeIdx + 1).trim();
 			            if (!predictedCol || !targetVal) continue;
 
-			            var resolvedCol = resolveColumn(predictedCol, colNames, 0.5);
+			            var resolvedCol = resolveColumn(predictedCol, colNames, 0.72);
 			            if (!resolvedCol) {
 			                console.warn("⚠️ 매칭 컬럼 없음, 무시:", predictedCol, "→", targetVal);
 			                skipped.push(predictedCol + "|" + targetVal);
