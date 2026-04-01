@@ -1,4 +1,4 @@
-// llm_smart_search_v3.js - 범용성 + 하이브리드 방식
+// llm_smart_search_v4.js - 필터/정렬 해제 기능 추가
 
 var globalAIEngine = null;
 
@@ -59,6 +59,17 @@ function onBodyLoad(e){
 function preprocessUserInput(rawText, allowedColumns) {
     var text = rawText.toLowerCase();
     
+    // ⭐ 해제/초기화 키워드 체크
+    var clearKeywords = ['해제', '지워', '초기화', 'clear', 'reset', 'remove'];
+    var hasClearKeyword = clearKeywords.some(function(kw) { return text.indexOf(kw) >= 0; });
+    
+    var showAllKeywords = ['전체', '모두', '전부', 'all', 'show all'];
+    var hasShowAllKeyword = showAllKeywords.some(function(kw) { return text.indexOf(kw) >= 0; });
+    
+    // 필터/정렬 언급 체크
+    var hasFilterMention = text.indexOf('필터') >= 0 || text.indexOf('filter') >= 0;
+    var hasSortMention = text.indexOf('정렬') >= 0 || text.indexOf('sort') >= 0;
+    
     // 1. 정렬 키워드 체크
     var sortKeywords = ['큰', '작은', '높은', '낮은', '많은', '적은', '순', '정렬', 'sort', 'order'];
     var hasSortKeyword = sortKeywords.some(function(kw) { return text.indexOf(kw) >= 0; });
@@ -84,6 +95,10 @@ function preprocessUserInput(rawText, allowedColumns) {
     var isAsc = ascKeywords.some(function(kw) { return text.indexOf(kw) >= 0; });
     
     return {
+        hasClearKeyword: hasClearKeyword,
+        hasShowAllKeyword: hasShowAllKeyword,
+        hasFilterMention: hasFilterMention,
+        hasSortMention: hasSortMention,
         hasSortKeyword: hasSortKeyword,
         hasFilterKeyword: hasFilterKeyword,
         mentionedColumn: mentionedColumn,
@@ -113,7 +128,43 @@ async function onBtnSmartSearchClick(e) {
     
     console.log("📊 사전 분석:", preAnalysis);
     
-    // ⭐ 범용적 프롬프트 (특정 값 예시 제거)
+    // ⭐ 해제/초기화 명령 즉시 처리 (AI 호출 불필요)
+    if(preAnalysis.hasClearKeyword || preAnalysis.hasShowAllKeyword) {
+        var logCtrl = app.lookup("optLog");
+        
+        // 필터 해제
+        if(preAnalysis.hasFilterMention || preAnalysis.hasShowAllKeyword) {
+            dataSet.clearFilter();
+            console.log("✅ 필터 해제");
+            if(logCtrl) {
+                logCtrl.value = "✅ 필터 해제 완료";
+            }
+        }
+        
+        // 정렬 해제
+        if(preAnalysis.hasSortMention || preAnalysis.hasShowAllKeyword) {
+            dataSet.clearSort();
+            console.log("✅ 정렬 해제");
+            if(logCtrl) {
+                logCtrl.value = logCtrl.value + " / 정렬 해제 완료";
+            }
+        }
+        
+        // 둘 다 언급 안 됐으면 전체 해제
+        if(!preAnalysis.hasFilterMention && !preAnalysis.hasSortMention) {
+            dataSet.clearFilter();
+            dataSet.clearSort();
+            if(logCtrl) {
+                logCtrl.value = "✅ 필터 및 정렬 모두 해제 완료";
+            }
+        }
+        
+        app.getContainer().redraw();
+        alert("초기화 완료! 전체 데이터를 표시합니다.");
+        return; // AI 호출 없이 종료
+    }
+    
+    // ⭐ 범용적 프롬프트 (편향 제거)
     var systemPrompt = `Analyze user request. Output ONLY one command format.
 
 Available columns: ${allowedColumns.join(", ")}
@@ -168,7 +219,7 @@ Now analyze (keep exact values from user):`;
         
         console.log("🎯 최종 명령:", finalCommand);
         
-        executeSearchCommandV3(dataSet, finalCommand, allowedColumns, logCtrl);
+        executeSearchCommandV4(dataSet, finalCommand, allowedColumns, logCtrl);
 
     } catch(error) {
         console.error("❌ 오류:", error);
@@ -195,9 +246,8 @@ function postprocessAIResponse(aiReply, preAnalysis, rawText, allowedColumns) {
         
         // 필터 키워드가 있으면 FILTER로 강제 변환
         if(preAnalysis.hasFilterKeyword) {
-            // 사용자 입력에서 값 추출 (간단한 패턴)
             var words = rawText.split(/\s+/);
-            var valueCandidate = words[0]; // 첫 단어를 임시 값으로
+            var valueCandidate = words[0];
             return "FILTER|" + valueCandidate;
         }
     }
@@ -227,7 +277,7 @@ function postprocessAIResponse(aiReply, preAnalysis, rawText, allowedColumns) {
     return aiReply;
 }
 
-function executeSearchCommandV3(dataSet, command, allowedColumns, logCtrl) {
+function executeSearchCommandV4(dataSet, command, allowedColumns, logCtrl) {
     var parts = command.split("|");
     var cmdType = parts[0];
 
@@ -361,8 +411,8 @@ function executeSearchCommandV3(dataSet, command, allowedColumns, logCtrl) {
 
 function onBtnResetFilterClick(e) {
     var dataSet = app.lookup("ds1");
-    dataSet.setFilter("");
-    dataSet.setSort("");
+    dataSet.clearFilter();
+    dataSet.clearSort();
     
     var logCtrl = app.lookup("optLog");
     if(logCtrl) {
