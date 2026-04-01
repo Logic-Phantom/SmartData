@@ -11,12 +11,11 @@
 		onCreate: function(/* cpr.core.AppInstance */ app, exports) {
 			var linker = {};
 			// Start - User Script
-			// llm_smart_search.js - eXBuilder6 자연어 검색/필터/정렬 시스템
+			// llm_smart_search_v2.js - 컬럼 자동 탐색 방식
 
 			var globalAIEngine = null;
 
 			function onBodyLoad(e){
-			    // 기존 AI 엔진 초기화 코드 (동일)
 			    const worker = new Worker(new URL("./lib/llm-worker.js", window.location.href), { type: "module" });
 
 			    worker.onerror = function(err) {
@@ -67,10 +66,6 @@
 			    });
 			}
 
-			/*
-			 * 🔍 "스마트 검색" 버튼 클릭 이벤트
-			 * 자연어 입력 → AI 분석 → 정렬/필터 자동 적용
-			 */
 			async function onBtnSmartSearchClick(e) {
 			    var rawText = app.lookup("txaUserInput").value; 
 			    if (!rawText) return alert("검색할 내용을 입력해주세요.");
@@ -79,66 +74,50 @@
 			        return alert("AI가 아직 예열 중입니다. 상단 로그를 확인해주세요.");
 			    }
 
-			    var dataSet = app.lookup("dsOrder"); // 데이터셋 ID는 실제 환경에 맞게 수정
+			    var dataSet = app.lookup("ds1");
 			    var headers = dataSet.getHeaders(); 
 			    
-			    // 전체 컬럼 목록 추출
 			    var allowedColumns = [];
 			    for(var i = 0; i < headers.length; i++) {
 			        allowedColumns.push(headers[i].getName());
 			    }
 
-			    // ⭐ AI 프롬프트: 자연어 → 구조화된 검색 명령 변환
-			    var systemPrompt = `당신은 사용자의 자연어 검색 요청을 분석하여 데이터베이스 명령으로 변환하는 전문가입니다.
-사용자의 요청을 정확히 분석하여 아래 형식으로만 출력하세요.
+			    // ⭐ 초간단 프롬프트: 타입과 값만 추출 (컬럼명은 JS가 찾음)
+			    var systemPrompt = `Extract search intent. Output ONLY the command, NO explanations.
 
-[🎯 절대 규칙]
-1. 불필요한 인사말이나 설명 없이 오직 결과만 출력
-2. 아래 형식 중 하나만 선택하여 정확히 출력
-3. 컬럼명은 반드시 사용 가능한 컬럼 목록에서만 선택
-4. 사용자가 입력한 원본 값은 절대 수정하지 말고 그대로 사용
+[RULES]
+Keep user's values EXACTLY as written.
 
-[📋 사용 가능한 컬럼 목록]
-${allowedColumns.join(", ")}
+[FORMATS]
 
-[🔧 출력 형식]
+FILTER (show only specific value):
+FILTER|value
 
-✅ 정렬 요청인 경우:
-SORT|컬럼명|정렬방향
-- 정렬방향: asc (오름차순/작은것부터/적은순) 또는 desc (내림차순/큰것부터/많은순)
+Examples:
+"짜장면만 보여줘" → FILTER|짜장면
+"짜장면 데이터 만 보여줘" → FILTER|짜장면
+"사과만" → FILTER|사과
+"나이 20 이상" → FILTER_GTE|20
+"나이 20 이하" → FILTER_LTE|20
+"이름에 김 포함" → FILTER_CONTAINS|김
 
-예시:
-- "나이 많은 순으로" → SORT|age|desc
-- "age 컬럼 큰것부터" → SORT|age|desc
-- "가격 낮은 순" → SORT|price|asc
-- "이름 순서대로" → SORT|name|asc
+SORT (order data by column):
+SORT|${allowedColumns.join(" or ")}|asc or desc
 
-✅ 필터 요청인 경우:
-FILTER|컬럼명|연산자|값
-- 연산자: == (같음), != (다름), *= (포함), > (크다), < (작다), >= (이상), <= (이하)
+Examples:
+"나이 많은 순" → SORT|age|desc
+"가격 낮은 순" → SORT|price|asc
 
-예시:
-- "사과만 보여줘" → FILTER|food|==|사과
-- "food에서 사과" → FILTER|food|==|사과
-- "나이 20 이상" → FILTER|age|>=|20
-- "이름에 김 포함" → FILTER|name|*=|김
+MULTI (both):
+MULTI|FILTER|value|SORT|column|direction
 
-✅ 정렬 + 필터 동시 요청인 경우:
-MULTI|FILTER|컬럼명|연산자|값|SORT|컬럼명|정렬방향
+Example:
+"사과만 가격순으로" → MULTI|FILTER|사과|SORT|price|asc
 
-예시:
-- "사과만 가격순으로" → MULTI|FILTER|food|==|사과|SORT|price|asc
-
-[🚨 주의사항]
-1. 컬럼명이 명확하지 않으면 가장 유사한 컬럼 선택
-2. 값은 사용자가 입력한 그대로 사용 (맞춤법 수정 금지)
-3. 숫자는 숫자로, 문자는 문자로 정확히 구분
-4. 불가능한 요청은 ERROR|이유 형식으로 출력
-
-이제 아래 사용자 요청을 분석하여 정확한 명령으로 변환하세요:`;
+Analyze:`;
 
 			    try {
-			        console.log("🚀 백그라운드 AI 검색 명령 분석 시작...");
+			        console.log("🚀 AI 분석 시작...");
 			        var logCtrl = app.lookup("optLog");
 			        
 			        const chunks = await globalAIEngine.chat.completions.create({
@@ -147,7 +126,7 @@ MULTI|FILTER|컬럼명|연산자|값|SORT|컬럼명|정렬방향
 			                { role: "user", content: rawText }
 			            ],
 			            temperature: 0.0, 
-			            max_tokens: 50,
+			            max_tokens: 30,
 			            stream: true 
 			        });
 
@@ -157,150 +136,179 @@ MULTI|FILTER|컬럼명|연산자|값|SORT|컬럼명|정렬방향
 			            const content = chunk.choices[0]?.delta?.content || "";
 			            fullReply += content;
 			            if(logCtrl) {
-			                logCtrl.value = "AI 분석 중... " + fullReply; 
+			                logCtrl.value = "AI 분석: " + fullReply; 
 			                app.getContainer().redraw();
 			            }
 			        }
 
 			        console.log("✅ AI 분석 완료:", fullReply);
 
-			        // 3. AI 응답 파싱 및 실행
 			        var cleanReply = fullReply.trim().replace(/`/g, "");
 			        
-			        if (cleanReply.startsWith("ERROR")) {
-			            var errorMsg = cleanReply.split("|")[1] || "요청을 이해할 수 없습니다";
-			            return alert("❌ " + errorMsg);
-			        }
-
-			        // 명령 실행
-			        executeSearchCommand(dataSet, cleanReply, logCtrl);
+			        executeSearchCommandV2(dataSet, cleanReply, allowedColumns, logCtrl);
 
 			    } catch(error) {
-			        console.error("❌ 처리 오류:", error);
-			        alert("분석 중 오류가 발생했습니다. 콘솔을 확인하세요.");
+			        console.error("❌ 오류:", error);
+			        alert("분석 중 오류 발생: " + error.message);
 			    }
 			}
 
-			/*
-			 * 🎯 검색 명령 실행 함수
-			 */
-			function executeSearchCommand(dataSet, command, logCtrl) {
+			function executeSearchCommandV2(dataSet, command, allowedColumns, logCtrl) {
 			    var parts = command.split("|");
 			    var cmdType = parts[0];
 
 			    try {
-			        if (cmdType === "SORT") {
-			            // SORT|컬럼명|정렬방향
-			            var column = parts[1];
-			            var order = parts[2]; // asc 또는 desc
+			        if (cmdType === "FILTER" || cmdType === "FILTER_GTE" || cmdType === "FILTER_LTE" || 
+			            cmdType === "FILTER_GT" || cmdType === "FILTER_LT" || cmdType === "FILTER_CONTAINS") {
 			            
-			            var sortExpr = column + " " + order;
+			            var targetValue = parts[1];
 			            
-			            dataSet.setSort(sortExpr);
+			            // 연산자 결정
+			            var operator = "==";
+			            if (cmdType === "FILTER_GTE") operator = ">=";
+			            else if (cmdType === "FILTER_LTE") operator = "<=";
+			            else if (cmdType === "FILTER_GT") operator = ">";
+			            else if (cmdType === "FILTER_LT") operator = "<";
+			            else if (cmdType === "FILTER_CONTAINS") operator = "*=";
 			            
-			            console.log("✅ 정렬 적용:", sortExpr);
-			            if(logCtrl) {
-			                logCtrl.value = "✅ 정렬 완료: " + column + " " + (order === "desc" ? "내림차순" : "오름차순");
+			            // ⭐ 모든 컬럼을 스캔해서 값이 있는 컬럼 찾기 (기존 삭제 로직 방식)
+			            var foundColumn = null;
+			            
+			            for(var c = 0; c < allowedColumns.length; c++) {
+			                var searchCol = allowedColumns[c];
+			                var testExpr = searchCol + " " + operator + " '" + targetValue + "'";
+			                
+			                try {
+			                    var foundRows = dataSet.findAllRow(testExpr);
+			                    
+			                    if(foundRows && foundRows.length > 0) {
+			                        foundColumn = searchCol;
+			                        console.log("💡 컬럼 발견! '" + foundColumn + "' 컬럼에 '" + targetValue + "' 값 존재");
+			                        break;
+			                    }
+			                } catch(e) {
+			                    // 숫자 비교일 수도 있으니 따옴표 없이 재시도
+			                    try {
+			                        testExpr = searchCol + " " + operator + " " + targetValue;
+			                        foundRows = dataSet.findAllRow(testExpr);
+			                        
+			                        if(foundRows && foundRows.length > 0) {
+			                            foundColumn = searchCol;
+			                            console.log("💡 컬럼 발견! '" + foundColumn + "' 컬럼에 숫자 " + targetValue + " 존재");
+			                            break;
+			                        }
+			                    } catch(e2) {
+			                        // 이 컬럼은 매칭 안됨
+			                    }
+			                }
 			            }
-			            alert("정렬 완료: " + column + " " + (order === "desc" ? "큰 것부터" : "작은 것부터"));
 			            
-			        } else if (cmdType === "FILTER") {
-			            // FILTER|컬럼명|연산자|값
-			            var column = parts[1];
-			            var operator = parts[2];
-			            var value = parts[3];
+			            if(!foundColumn) {
+			                return alert("❌ 어떤 컬럼에서도 '" + targetValue + "' 값을 찾을 수 없습니다.");
+			            }
 			            
-			            var filterExpr = column + " " + operator + " '" + value + "'";
+			            // 필터 적용
+			            var isNumber = !isNaN(targetValue);
+			            var filterExpr = foundColumn + " " + operator + " " + (isNumber ? targetValue : "'" + targetValue + "'");
 			            dataSet.setFilter(filterExpr);
 			            
 			            console.log("✅ 필터 적용:", filterExpr);
 			            if(logCtrl) {
-			                logCtrl.value = "✅ 필터 완료: " + column + " " + operator + " " + value;
+			                logCtrl.value = "✅ 필터: " + foundColumn + " " + operator + " " + targetValue;
 			            }
-			            alert("필터 완료: " + column + "에서 " + value + " 조건 적용");
+			            alert("필터 완료!\n컬럼: " + foundColumn + "\n조건: " + operator + " " + targetValue);
+			            
+			        } else if (cmdType === "SORT") {
+			            var column = parts[1];
+			            var order = parts[2];
+			            
+			            var sortExpr = column + " " + order;
+			            dataSet.setSort(sortExpr);
+			            
+			            console.log("✅ 정렬:", sortExpr);
+			            if(logCtrl) {
+			                logCtrl.value = "✅ 정렬: " + column + " " + (order === "desc" ? "내림차순" : "오름차순");
+			            }
+			            alert("정렬 완료: " + column + " " + (order === "desc" ? "큰 것부터" : "작은 것부터"));
 			            
 			        } else if (cmdType === "MULTI") {
-			            // MULTI|FILTER|컬럼명|연산자|값|SORT|컬럼명|정렬방향
-			            var hasSort = false;
-			            var hasFilter = false;
-			            var sortColumn, sortOrder, filterColumn, filterOperator, filterValue;
+			            // MULTI|FILTER|값|SORT|컬럼|방향
+			            var filterValue = null;
+			            var sortColumn = null;
+			            var sortOrder = null;
 			            
-			            // SORT 찾기
 			            for(var i = 1; i < parts.length; i++) {
+			                if(parts[i] === "FILTER" && i + 1 < parts.length) {
+			                    filterValue = parts[i + 1];
+			                }
 			                if(parts[i] === "SORT" && i + 2 < parts.length) {
 			                    sortColumn = parts[i + 1];
 			                    sortOrder = parts[i + 2];
-			                    hasSort = true;
 			                }
 			            }
 			            
-			            // FILTER 찾기
-			            for(var i = 1; i < parts.length; i++) {
-			                if(parts[i] === "FILTER" && i + 3 < parts.length) {
-			                    filterColumn = parts[i + 1];
-			                    filterOperator = parts[i + 2];
-			                    filterValue = parts[i + 3];
-			                    hasFilter = true;
+			            // 필터 먼저 적용 (컬럼 자동 탐색)
+			            if(filterValue) {
+			                var foundColumn = null;
+			                
+			                for(var c = 0; c < allowedColumns.length; c++) {
+			                    var searchCol = allowedColumns[c];
+			                    var testExpr = searchCol + " == '" + filterValue + "'";
+			                    
+			                    try {
+			                        var foundRows = dataSet.findAllRow(testExpr);
+			                        if(foundRows && foundRows.length > 0) {
+			                            foundColumn = searchCol;
+			                            break;
+			                        }
+			                    } catch(e) {}
 			                }
-			            }
-			            
-			            // 필터 먼저 적용
-			            if(hasFilter) {
-			                var filterExpr = filterColumn + " " + filterOperator + " '" + filterValue + "'";
-			                dataSet.setFilter(filterExpr);
-			                console.log("✅ 필터 적용:", filterExpr);
+			                
+			                if(foundColumn) {
+			                    var filterExpr = foundColumn + " == '" + filterValue + "'";
+			                    dataSet.setFilter(filterExpr);
+			                    console.log("✅ 필터:", filterExpr);
+			                }
 			            }
 			            
 			            // 정렬 적용
-			            if(hasSort) {
+			            if(sortColumn && sortOrder) {
 			                var sortExpr = sortColumn + " " + sortOrder;
 			                dataSet.setSort(sortExpr);
-			                console.log("✅ 정렬 적용:", sortExpr);
+			                console.log("✅ 정렬:", sortExpr);
 			            }
 			            
 			            if(logCtrl) {
-			                var msg = "✅ ";
-			                if(hasFilter) msg += "필터(" + filterColumn + ") + ";
-			                if(hasSort) msg += "정렬(" + sortColumn + " " + sortOrder + ")";
-			                logCtrl.value = msg;
+			                logCtrl.value = "✅ 필터 + 정렬 완료!";
 			            }
 			            alert("필터 및 정렬 완료!");
 			            
 			        } else {
-			            alert("❌ 알 수 없는 명령 형식입니다: " + command);
+			            alert("❌ 알 수 없는 명령: " + command);
 			        }
 			        
-			        // 화면 갱신
 			        app.getContainer().redraw();
 			        
 			    } catch(error) {
-			        console.error("❌ 명령 실행 오류:", error);
-			        alert("명령 실행 중 오류 발생: " + error.message);
+			        console.error("❌ 실행 오류:", error);
+			        alert("실행 오류: " + error.message);
 			    }
 			}
 
-			/*
-			 * 🔄 "필터 초기화" 버튼 클릭 이벤트
-			 */
 			function onBtnResetFilterClick(e) {
 			    var dataSet = app.lookup("dsOrder");
-			    
-			    // 필터 및 정렬 초기화
 			    dataSet.setFilter("");
 			    dataSet.setSort("");
 			    
 			    var logCtrl = app.lookup("optLog");
 			    if(logCtrl) {
-			        logCtrl.value = "🔄 필터 및 정렬 초기화 완료";
+			        logCtrl.value = "🔄 초기화 완료";
 			    }
 			    
 			    app.getContainer().redraw();
-			    alert("필터 및 정렬이 초기화되었습니다.");
+			    alert("필터/정렬 초기화 완료");
 			}
 
-			/*
-			 * 📊 "현재 상태 보기" 버튼 클릭 이벤트
-			 */
 			function onBtnShowStatusClick(e) {
 			    var dataSet = app.lookup("dsOrder");
 			    
@@ -308,10 +316,10 @@ MULTI|FILTER|컬럼명|연산자|값|SORT|컬럼명|정렬방향
 			    var currentSort = dataSet.getSort() || "(없음)";
 			    var rowCount = dataSet.getRowCount();
 			    
-			    var statusMsg = "📊 현재 데이터셋 상태\n\n";
+			    var statusMsg = "📊 현재 상태\n\n";
 			    statusMsg += "🔍 필터: " + currentFilter + "\n";
 			    statusMsg += "📈 정렬: " + currentSort + "\n";
-			    statusMsg += "📝 표시된 행 수: " + rowCount + "개";
+			    statusMsg += "📝 행 수: " + rowCount;
 			    
 			    alert(statusMsg);
 			    
@@ -319,7 +327,7 @@ MULTI|FILTER|컬럼명|연산자|값|SORT|컬럼명|정렬방향
 			    if(logCtrl) {
 			        logCtrl.value = "필터: " + currentFilter + " | 정렬: " + currentSort;
 			    }
-			}
+			};
 			// End - User Script
 			
 			// Header
