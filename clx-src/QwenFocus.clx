@@ -47,6 +47,96 @@
             <cl:datavalue columnname="column2">column27</cl:datavalue>
             <cl:datavalue columnname="column3">column37</cl:datavalue>
           </cl:datarow>
+          <cl:datarow>
+            <cl:datavalue columnname="column1">8</cl:datavalue>
+            <cl:datavalue columnname="column2">column28</cl:datavalue>
+            <cl:datavalue columnname="column3">column38</cl:datavalue>
+          </cl:datarow>
+          <cl:datarow>
+            <cl:datavalue columnname="column1">9</cl:datavalue>
+            <cl:datavalue columnname="column2">column29</cl:datavalue>
+            <cl:datavalue columnname="column3">column39</cl:datavalue>
+          </cl:datarow>
+          <cl:datarow>
+            <cl:datavalue columnname="column1">10</cl:datavalue>
+            <cl:datavalue columnname="column2">column210</cl:datavalue>
+            <cl:datavalue columnname="column3">column310</cl:datavalue>
+          </cl:datarow>
+          <cl:datarow>
+            <cl:datavalue columnname="column1">11</cl:datavalue>
+            <cl:datavalue columnname="column2">column211</cl:datavalue>
+            <cl:datavalue columnname="column3">column311</cl:datavalue>
+          </cl:datarow>
+          <cl:datarow>
+            <cl:datavalue columnname="column1">12</cl:datavalue>
+            <cl:datavalue columnname="column2">column212</cl:datavalue>
+            <cl:datavalue columnname="column3">column312</cl:datavalue>
+          </cl:datarow>
+          <cl:datarow>
+            <cl:datavalue columnname="column1">13</cl:datavalue>
+            <cl:datavalue columnname="column2">column213</cl:datavalue>
+            <cl:datavalue columnname="column3">column313</cl:datavalue>
+          </cl:datarow>
+          <cl:datarow>
+            <cl:datavalue columnname="column1">14</cl:datavalue>
+            <cl:datavalue columnname="column2">column214</cl:datavalue>
+            <cl:datavalue columnname="column3">column314</cl:datavalue>
+          </cl:datarow>
+          <cl:datarow>
+            <cl:datavalue columnname="column1">15</cl:datavalue>
+            <cl:datavalue columnname="column2">column215</cl:datavalue>
+            <cl:datavalue columnname="column3">column315</cl:datavalue>
+          </cl:datarow>
+          <cl:datarow>
+            <cl:datavalue columnname="column1">16</cl:datavalue>
+            <cl:datavalue columnname="column2">column216</cl:datavalue>
+            <cl:datavalue columnname="column3">column316</cl:datavalue>
+          </cl:datarow>
+          <cl:datarow>
+            <cl:datavalue columnname="column1">17</cl:datavalue>
+            <cl:datavalue columnname="column2">column217</cl:datavalue>
+            <cl:datavalue columnname="column3"><![CDATA[짬뽕]]></cl:datavalue>
+          </cl:datarow>
+          <cl:datarow>
+            <cl:datavalue columnname="column1">18</cl:datavalue>
+            <cl:datavalue columnname="column2">column218</cl:datavalue>
+            <cl:datavalue columnname="column3">column318</cl:datavalue>
+          </cl:datarow>
+          <cl:datarow>
+            <cl:datavalue columnname="column1">19</cl:datavalue>
+            <cl:datavalue columnname="column2">column219</cl:datavalue>
+            <cl:datavalue columnname="column3">column319</cl:datavalue>
+          </cl:datarow>
+          <cl:datarow>
+            <cl:datavalue columnname="column1">20</cl:datavalue>
+            <cl:datavalue columnname="column2">column220</cl:datavalue>
+            <cl:datavalue columnname="column3">column320</cl:datavalue>
+          </cl:datarow>
+          <cl:datarow>
+            <cl:datavalue columnname="column1">21</cl:datavalue>
+            <cl:datavalue columnname="column2">column221</cl:datavalue>
+            <cl:datavalue columnname="column3">column321</cl:datavalue>
+          </cl:datarow>
+          <cl:datarow>
+            <cl:datavalue columnname="column1">22</cl:datavalue>
+            <cl:datavalue columnname="column2">column222</cl:datavalue>
+            <cl:datavalue columnname="column3">column322</cl:datavalue>
+          </cl:datarow>
+          <cl:datarow>
+            <cl:datavalue columnname="column1">23</cl:datavalue>
+            <cl:datavalue columnname="column2">column223</cl:datavalue>
+            <cl:datavalue columnname="column3">column323</cl:datavalue>
+          </cl:datarow>
+          <cl:datarow>
+            <cl:datavalue columnname="column1">24</cl:datavalue>
+            <cl:datavalue columnname="column2">column224</cl:datavalue>
+            <cl:datavalue columnname="column3">column324</cl:datavalue>
+          </cl:datarow>
+          <cl:datarow>
+            <cl:datavalue columnname="column1">25</cl:datavalue>
+            <cl:datavalue columnname="column2">column225</cl:datavalue>
+            <cl:datavalue columnname="column3">column325</cl:datavalue>
+          </cl:datarow>
         </cl:datarowlist>
       </cl:dataset>
       <cl:datamap std:sid="d-map-ce717197" id="dmSample">
@@ -67,7 +157,7 @@
       <cl:listener std:sid="listener-2a21208f" name="click" handler="onBtnSmartSearchClick"/>
       <cl:xylayoutdata std:sid="xyl-data-5dd2c9be" top="38px" left="685px" width="144px" height="40px" horizontalAnchor="LEFT" verticalAnchor="TOP"/>
     </cl:button>
-    <cl:textarea std:sid="t-area-79dfc464" id="txaUserInput" value="오늘 날짜로 임채명 데이터추가">
+    <cl:textarea std:sid="t-area-79dfc464" id="txaUserInput" value="짬뽕 찾아줘">
       <cl:xylayoutdata std:sid="xyl-data-9558ad9f" top="10px" left="10px" width="553px" height="137px" horizontalAnchor="LEFT" verticalAnchor="TOP"/>
     </cl:textarea>
     <cl:output std:sid="output-d8f55b37" id="optLog" value="Output" unselectable="false">
