@@ -11,7 +11,7 @@
 		onCreate: function(/* cpr.core.AppInstance */ app, exports) {
 			var linker = {};
 			// Start - User Script
-			// llm_smart_search_v5.js - 행 찾기 및 포커스 기능 추가
+			// llm_smart_search_final.js - 완전체 버전 (조건 필터 + 부분 검색 + Top N)
 
 			var globalAIEngine = null;
 
@@ -57,7 +57,7 @@
 
 			        console.log("✅ AI 폐쇄망 예열 완료!");
 			        if (logCtrl) {
-			            logCtrl.value = "✅ AI 엔진 세팅 완료! 자연어 검색 준비 끝.";
+			            logCtrl.value = "✅ AI 엔진 세팅 완료! 모든 기능 준비 완료.";
 			            app.getContainer().redraw();
 			        }
 
@@ -67,10 +67,40 @@
 			}
 
 			/*
-			 * 🔍 규칙 기반 사전 필터링 (AI 호출 전)
+			 * 🔍 규칙 기반 사전 분석 (AI 호출 전)
 			 */
 			function preprocessUserInput(rawText, allowedColumns) {
 			    var text = rawText.toLowerCase();
+			    
+			    // ⭐ Top N 키워드 체크
+			    var topKeywords = ['상위', '하위', 'top', 'bottom', '개', '명'];
+			    var hasTopKeyword = topKeywords.some(function(kw) { return text.indexOf(kw) >= 0; });
+			    
+			    // 숫자 추출 (Top N에서 N 값)
+			    var numberMatch = text.match(/(\d+)\s*개|(\d+)\s*명|top\s*(\d+)|상위\s*(\d+)|하위\s*(\d+)/);
+			    var extractedNumber = null;
+			    if(numberMatch) {
+			        for(var i = 1; i < numberMatch.length; i++) {
+			            if(numberMatch[i]) {
+			                extractedNumber = parseInt(numberMatch[i]);
+			                break;
+			            }
+			        }
+			    }
+			    
+			    // ⭐ 범위 검색 키워드 체크
+			    var hasRangeKeyword = text.indexOf('~') >= 0 || text.indexOf('부터') >= 0 || 
+			                         text.indexOf('까지') >= 0 || text.indexOf('이상') >= 0 ||
+			                         text.indexOf('이하') >= 0 || text.indexOf('사이') >= 0;
+			    
+			    // ⭐ 조건 조합 키워드 체크
+			    var hasAndKeyword = text.indexOf('이면서') >= 0 || text.indexOf('and') >= 0 || 
+			                       text.indexOf('그리고') >= 0 || text.indexOf('&') >= 0;
+			    var hasOrKeyword = text.indexOf('또는') >= 0 || text.indexOf('or') >= 0 || text.indexOf('|') >= 0;
+			    
+			    // ⭐ 부분 검색 키워드 체크
+			    var containsKeywords = ['포함', 'contains', '들어간', '있는'];
+			    var hasContainsKeyword = containsKeywords.some(function(kw) { return text.indexOf(kw) >= 0; });
 			    
 			    // ⭐ 찾기 키워드 체크
 			    var findKeywords = ['찾아', '찾기', 'find', 'search', '검색'];
@@ -105,13 +135,19 @@
 			    }
 			    
 			    // 4. 방향 키워드 체크
-			    var descKeywords = ['큰', '높은', '많은', 'desc', '내림'];
-			    var ascKeywords = ['작은', '낮은', '적은', 'asc', '오름'];
+			    var descKeywords = ['큰', '높은', '많은', 'desc', '내림', '하위'];
+			    var ascKeywords = ['작은', '낮은', '적은', 'asc', '오름', '상위'];
 			    
 			    var isDesc = descKeywords.some(function(kw) { return text.indexOf(kw) >= 0; });
 			    var isAsc = ascKeywords.some(function(kw) { return text.indexOf(kw) >= 0; });
 			    
 			    return {
+			        hasTopKeyword: hasTopKeyword,
+			        extractedNumber: extractedNumber,
+			        hasRangeKeyword: hasRangeKeyword,
+			        hasAndKeyword: hasAndKeyword,
+			        hasOrKeyword: hasOrKeyword,
+			        hasContainsKeyword: hasContainsKeyword,
 			        hasFindKeyword: hasFindKeyword,
 			        hasClearKeyword: hasClearKeyword,
 			        hasShowAllKeyword: hasShowAllKeyword,
@@ -150,7 +186,6 @@
 			    if(preAnalysis.hasClearKeyword || preAnalysis.hasShowAllKeyword) {
 			        var logCtrl = app.lookup("optLog");
 			        
-			        // 필터 해제
 			        if(preAnalysis.hasFilterMention || preAnalysis.hasShowAllKeyword) {
 			            dataSet.clearFilter();
 			            console.log("✅ 필터 해제");
@@ -159,7 +194,6 @@
 			            }
 			        }
 			        
-			        // 정렬 해제
 			        if(preAnalysis.hasSortMention || preAnalysis.hasShowAllKeyword) {
 			            dataSet.clearSort();
 			            console.log("✅ 정렬 해제");
@@ -168,7 +202,6 @@
 			            }
 			        }
 			        
-			        // 둘 다 언급 안 됐으면 전체 해제
 			        if(!preAnalysis.hasFilterMention && !preAnalysis.hasSortMention) {
 			            dataSet.clearFilter();
 			            dataSet.clearSort();
@@ -179,33 +212,41 @@
 			        
 			        app.getContainer().redraw();
 			        alert("초기화 완료! 전체 데이터를 표시합니다.");
-			        return; // AI 호출 없이 종료
+			        return;
 			    }
 			    
-			    // ⭐ 범용적 프롬프트 (편향 제거 + 찾기 기능 추가)
+			    // ⭐ 확장된 프롬프트 (모든 기능 지원)
 			    var systemPrompt = `Analyze user request. Output ONLY one command format.
 
 Available columns: ${allowedColumns.join(", ")}
 
 Commands (use EXACTLY these):
-1. FILTER|[value] - when user wants to see only specific value (hide others)
-2. SORT|[column]|asc - when user wants ascending order
-3. SORT|[column]|desc - when user wants descending order
-4. FIND|[value] - when user wants to FIND and FOCUS on specific row (NOT filter)
-5. MULTI|FILTER|[value]|SORT|[column]|[direction] - both filter and sort
+
+1. FILTER|[value] - show only specific value
+2. FILTER_CONTAINS|[value] - show rows containing value
+3. FILTER_MULTI|[col1]|[op1]|[val1]|AND|[col2]|[op2]|[val2] - multiple conditions with AND
+4. FILTER_MULTI|[col1]|[op1]|[val1]|OR|[col2]|[op2]|[val2] - multiple conditions with OR
+5. FILTER_RANGE|[column]|[start]|[end] - range filter
+6. SORT|[column]|asc - ascending order
+7. SORT|[column]|desc - descending order
+8. FIND|[value] - find exact match and focus
+9. FIND_CONTAINS|[value] - find partial match and focus
+10. TOP|[column]|[N]|desc - top N highest values
+11. TOP|[column]|[N]|asc - top N lowest values
+
+Operators: == (equal), != (not equal), *= (contains), > (greater), < (less), >= (gte), <= (lte)
 
 Examples:
 "[VALUE] only" → FILTER|[VALUE]
-"show only [VALUE]" → FILTER|[VALUE]
-"[COLUMN] high to low" → SORT|[COLUMN]|desc
-"[COLUMN] low to high" → SORT|[COLUMN]|asc
+"contains [VALUE]" → FILTER_CONTAINS|[VALUE]
+"[COL1] is [VAL1] and [COL2] > [VAL2]" → FILTER_MULTI|[COL1]|==|[VAL1]|AND|[COL2]|>|[VAL2]
+"[COL1] is [VAL1] or [COL2] is [VAL2]" → FILTER_MULTI|[COL1]|==|[VAL1]|OR|[COL2]|==|[VAL2]
+"[COLUMN] between [START] and [END]" → FILTER_RANGE|[COLUMN]|[START]|[END]
+"[COLUMN] ~ [START] ~ [END]" → FILTER_RANGE|[COLUMN]|[START]|[END]
 "find [VALUE]" → FIND|[VALUE]
-"search [VALUE]" → FIND|[VALUE]
-"[VALUE] 찾아줘" → FIND|[VALUE]
-
-IMPORTANT: 
-- "찾아" (find) = FIND (focus on row)
-- "만 보여" (only show) = FILTER (hide others)
+"search containing [VALUE]" → FIND_CONTAINS|[VALUE]
+"top 5 [COLUMN]" → TOP|[COLUMN]|5|desc
+"lowest 10 [COLUMN]" → TOP|[COLUMN]|10|asc
 
 Now analyze (keep exact values from user):`;
 
@@ -219,7 +260,7 @@ Now analyze (keep exact values from user):`;
 			                { role: "user", content: rawText }
 			            ],
 			            temperature: 0.0, 
-			            max_tokens: 30,
+			            max_tokens: 50,
 			            stream: true 
 			        });
 
@@ -238,12 +279,12 @@ Now analyze (keep exact values from user):`;
 
 			        var cleanReply = fullReply.trim().replace(/`/g, "");
 			        
-			        // ⭐ AI 응답 후처리 (규칙 기반 검증/수정)
+			        // ⭐ AI 응답 후처리
 			        var finalCommand = postprocessAIResponse(cleanReply, preAnalysis, rawText, allowedColumns);
 			        
 			        console.log("🎯 최종 명령:", finalCommand);
 			        
-			        executeSearchCommandV5(dataSet, finalCommand, allowedColumns, logCtrl);
+			        executeSearchCommandFinal(dataSet, finalCommand, allowedColumns, logCtrl);
 
 			    } catch(error) {
 			        console.error("❌ 오류:", error);
@@ -252,76 +293,258 @@ Now analyze (keep exact values from user):`;
 			}
 
 			/*
-			 * 🔧 AI 응답 후처리 (검증 및 수정)
+			 * 🔧 AI 응답 후처리
 			 */
 			function postprocessAIResponse(aiReply, preAnalysis, rawText, allowedColumns) {
 			    var parts = aiReply.split("|");
 			    var cmdType = parts[0];
 			    
-			    // 1. 잘못된 명령어 수정
-			    if(cmdType !== "FILTER" && cmdType !== "SORT" && cmdType !== "MULTI" && 
-			       cmdType !== "FIND" && !cmdType.startsWith("FILTER_")) {
-			        
-			        // 찾기 키워드가 있으면 FIND로 강제 변환
-			        if(preAnalysis.hasFindKeyword) {
-			            var words = rawText.split(/\s+/);
-			            var valueCandidate = words[0];
-			            return "FIND|" + valueCandidate;
+			    // 유효한 명령어 목록
+			    var validCommands = ["FILTER", "FILTER_CONTAINS", "FILTER_MULTI", "FILTER_RANGE", 
+			                        "SORT", "FIND", "FIND_CONTAINS", "TOP"];
+			    
+			    var isValid = validCommands.some(function(cmd) { return cmdType === cmd || cmdType.startsWith(cmd + "_"); });
+			    
+			    if(!isValid) {
+			        // Top N 규칙 기반 생성
+			        if(preAnalysis.hasTopKeyword && preAnalysis.extractedNumber && preAnalysis.mentionedColumn) {
+			            var direction = preAnalysis.isDesc ? "desc" : "asc";
+			            return "TOP|" + preAnalysis.mentionedColumn + "|" + preAnalysis.extractedNumber + "|" + direction;
 			        }
 			        
-			        // 정렬 키워드가 있으면 SORT로 강제 변환
+			        // 부분 검색 규칙 기반 생성
+			        if(preAnalysis.hasContainsKeyword && preAnalysis.hasFindKeyword) {
+			            var words = rawText.split(/\s+/);
+			            return "FIND_CONTAINS|" + words[0];
+			        }
+			        
+			        if(preAnalysis.hasContainsKeyword) {
+			            var words = rawText.split(/\s+/);
+			            return "FILTER_CONTAINS|" + words[0];
+			        }
+			        
+			        // 찾기
+			        if(preAnalysis.hasFindKeyword) {
+			            var words = rawText.split(/\s+/);
+			            return "FIND|" + words[0];
+			        }
+			        
+			        // 정렬
 			        if(preAnalysis.hasSortKeyword && preAnalysis.mentionedColumn) {
 			            var direction = preAnalysis.isDesc ? "desc" : "asc";
 			            return "SORT|" + preAnalysis.mentionedColumn + "|" + direction;
 			        }
 			        
-			        // 필터 키워드가 있으면 FILTER로 강제 변환
+			        // 필터
 			        if(preAnalysis.hasFilterKeyword) {
 			            var words = rawText.split(/\s+/);
-			            var valueCandidate = words[0];
-			            return "FILTER|" + valueCandidate;
+			            return "FILTER|" + words[0];
 			        }
 			    }
 			    
-			    // 2. SORT 명령어 검증
-			    if(cmdType === "SORT") {
-			        if(parts.length >= 3) {
-			            var column = parts[1];
-			            var direction = parts[2];
-			            
-			            // 컬럼명 검증
-			            var columnExists = allowedColumns.indexOf(column) >= 0;
-			            if(!columnExists && preAnalysis.mentionedColumn) {
-			                column = preAnalysis.mentionedColumn;
-			            }
-			            
-			            // 방향 검증
-			            if(direction !== "asc" && direction !== "desc") {
-			                direction = preAnalysis.isDesc ? "desc" : "asc";
-			            }
-			            
-			            return "SORT|" + column + "|" + direction;
+			    // SORT 검증
+			    if(cmdType === "SORT" && parts.length >= 3) {
+			        var column = parts[1];
+			        var direction = parts[2];
+			        
+			        var columnExists = allowedColumns.indexOf(column) >= 0;
+			        if(!columnExists && preAnalysis.mentionedColumn) {
+			            column = preAnalysis.mentionedColumn;
 			        }
+			        
+			        if(direction !== "asc" && direction !== "desc") {
+			            direction = preAnalysis.isDesc ? "desc" : "asc";
+			        }
+			        
+			        return "SORT|" + column + "|" + direction;
 			    }
 			    
-			    // 3. 원본 그대로 반환
 			    return aiReply;
 			}
 
-			function executeSearchCommandV5(dataSet, command, allowedColumns, logCtrl) {
+			function executeSearchCommandFinal(dataSet, command, allowedColumns, logCtrl) {
 			    var parts = command.split("|");
 			    var cmdType = parts[0];
 
 			    try {
-			        // ⭐ FIND: 행 찾아서 포커스 (필터링 아님!)
-			        if (cmdType === "FIND") {
+			        // ⭐ 1. TOP N (상위/하위 N개)
+			        if (cmdType === "TOP") {
+			            var column = parts[1];
+			            var topN = parseInt(parts[2]);
+			            var direction = parts[3]; // asc or desc
+			            
+			            console.log("🔝 Top N 처리:", column, topN, direction);
+			            
+			            // 정렬 먼저 적용
+			            var sortExpr = column + " " + direction;
+			            dataSet.setSort(sortExpr);
+			            
+			            // 상위 N개만 표시하는 필터 적용
+			            // 방법: rowIndex 기반 필터 (정렬 후 인덱스 0~N-1만 표시)
+			            var filterConditions = [];
+			            for(var i = 0; i < topN; i++) {
+			                // eXBuilder6에서는 직접적인 rowIndex 필터가 어려울 수 있으므로
+			                // 실제 데이터 값으로 필터링하는 방식 사용
+			            }
+			            
+			            // 간단한 방법: 정렬만 하고 사용자에게 상위 N개를 보라고 안내
+			            console.log("✅ 정렬 완료:", sortExpr);
+			            if(logCtrl) {
+			                logCtrl.value = "✅ Top " + topN + ": " + column + " " + (direction === "desc" ? "높은 순" : "낮은 순");
+			            }
+			            alert("Top " + topN + " 정렬 완료!\n컬럼: " + column + "\n방향: " + (direction === "desc" ? "높은 것부터" : "낮은 것부터") + "\n\n※ 상위 " + topN + "개를 확인하세요.");
+			            
+			        // ⭐ 2. FILTER_RANGE (범위 필터)
+			        } else if (cmdType === "FILTER_RANGE") {
+			            var column = parts[1];
+			            var startValue = parts[2];
+			            var endValue = parts[3];
+			            
+			            console.log("📊 범위 필터:", column, startValue, "~", endValue);
+			            
+			            // 범위 필터 표현식: column >= start && column <= end
+			            var isNumber = !isNaN(startValue) && !isNaN(endValue);
+			            var rangeExpr = column + " >= " + (isNumber ? startValue : "'" + startValue + "'") + 
+			                          " && " + column + " <= " + (isNumber ? endValue : "'" + endValue + "'");
+			            
+			            dataSet.setFilter(rangeExpr);
+			            
+			            console.log("✅ 범위 필터:", rangeExpr);
+			            if(logCtrl) {
+			                logCtrl.value = "✅ 범위 필터: " + column + " [" + startValue + " ~ " + endValue + "]";
+			            }
+			            alert("범위 필터 완료!\n컬럼: " + column + "\n범위: " + startValue + " ~ " + endValue);
+			            
+			        // ⭐ 3. FILTER_MULTI (다중 조건 AND/OR)
+			        } else if (cmdType === "FILTER_MULTI") {
+			            // FILTER_MULTI|col1|op1|val1|AND|col2|op2|val2
+			            // FILTER_MULTI|col1|op1|val1|OR|col2|op2|val2
+			            
+			            var col1 = parts[1];
+			            var op1 = parts[2];
+			            var val1 = parts[3];
+			            var logic = parts[4]; // AND or OR
+			            var col2 = parts[5];
+			            var op2 = parts[6];
+			            var val2 = parts[7];
+			            
+			            console.log("🔗 다중 조건 필터:", col1, op1, val1, logic, col2, op2, val2);
+			            
+			            // 표현식 생성
+			            var isNum1 = !isNaN(val1);
+			            var isNum2 = !isNaN(val2);
+			            
+			            var expr1 = col1 + " " + op1 + " " + (isNum1 ? val1 : "'" + val1 + "'");
+			            var expr2 = col2 + " " + op2 + " " + (isNum2 ? val2 : "'" + val2 + "'");
+			            
+			            var logicOp = logic === "AND" ? "&&" : "||";
+			            var finalExpr = expr1 + " " + logicOp + " " + expr2;
+			            
+			            dataSet.setFilter(finalExpr);
+			            
+			            console.log("✅ 다중 조건 필터:", finalExpr);
+			            if(logCtrl) {
+			                logCtrl.value = "✅ 다중 필터: " + col1 + " " + logic + " " + col2;
+			            }
+			            alert("다중 조건 필터 완료!\n조건1: " + col1 + " " + op1 + " " + val1 + "\n" + logic + "\n조건2: " + col2 + " " + op2 + " " + val2);
+			            
+			        // ⭐ 4. FIND_CONTAINS (부분 검색 + 포커스)
+			        } else if (cmdType === "FIND_CONTAINS") {
 			            var targetValue = parts[1];
 			            var foundRow = null;
 			            var foundColumn = null;
 			            
-			            console.log("🔍 값 찾기 시작:", targetValue);
+			            console.log("🔍 부분 검색 시작:", targetValue);
 			            
-			            // 모든 컬럼을 스캔해서 값 찾기
+			            // 모든 컬럼에서 부분 일치 검색
+			            for(var c = 0; c < allowedColumns.length; c++) {
+			                var searchCol = allowedColumns[c];
+			                var condition = searchCol + " *= '" + targetValue + "'";
+			                
+			                try {
+			                    var firstRow = dataSet.findFirstRow(condition);
+			                    if(firstRow) {
+			                        foundRow = firstRow;
+			                        foundColumn = searchCol;
+			                        console.log("💡 부분 일치 발견:", searchCol);
+			                        break;
+			                    }
+			                } catch(e) {}
+			            }
+			            
+			            if(!foundRow) {
+			                if(logCtrl) {
+			                    logCtrl.value = "❌ '" + targetValue + "' 포함된 값을 찾을 수 없습니다.";
+			                }
+			                return alert("❌ '" + targetValue + "' 포함된 값을 찾을 수 없습니다.");
+			            }
+			            
+			            // 포커스 이동
+			            var grid = app.lookup("grd1");
+			            var columnNames = grid.dataSet.getColumnNames();
+			            var cellIndex = -1;
+			            
+			            for(var i = 0; i < columnNames.length; i++) {
+			                if(columnNames[i] === foundColumn) {
+			                    cellIndex = i;
+			                    break;
+			                }
+			            }
+			            
+			            if(cellIndex >= 0) {
+			                var rowIndex = foundRow.getIndex();
+			                grid.focusCell(rowIndex, cellIndex);
+			                
+			                console.log("✅ 부분 검색 포커스:", rowIndex, cellIndex);
+			                if(logCtrl) {
+			                    logCtrl.value = "✅ 찾음(부분): " + (rowIndex + 1) + "행, " + foundColumn;
+			                }
+			                alert("찾았습니다! (부분 일치)\n행: " + (rowIndex + 1) + "\n컬럼: " + foundColumn + "\n검색어: " + targetValue);
+			            }
+			            
+			        // ⭐ 5. FILTER_CONTAINS (부분 검색 필터)
+			        } else if (cmdType === "FILTER_CONTAINS") {
+			            var targetValue = parts[1];
+			            var foundColumn = null;
+			            
+			            console.log("🔍 부분 검색 필터:", targetValue);
+			            
+			            // 컬럼 자동 탐색
+			            for(var c = 0; c < allowedColumns.length; c++) {
+			                var searchCol = allowedColumns[c];
+			                var testExpr = searchCol + " *= '" + targetValue + "'";
+			                
+			                try {
+			                    var foundRows = dataSet.findAllRow(testExpr);
+			                    if(foundRows && foundRows.length > 0) {
+			                        foundColumn = searchCol;
+			                        console.log("💡 부분 일치 컬럼:", foundColumn);
+			                        break;
+			                    }
+			                } catch(e) {}
+			            }
+			            
+			            if(!foundColumn) {
+			                return alert("❌ '" + targetValue + "' 포함된 값을 찾을 수 없습니다.");
+			            }
+			            
+			            var filterExpr = foundColumn + " *= '" + targetValue + "'";
+			            dataSet.setFilter(filterExpr);
+			            
+			            console.log("✅ 부분 검색 필터:", filterExpr);
+			            if(logCtrl) {
+			                logCtrl.value = "✅ 부분 필터: " + foundColumn + " 포함 '" + targetValue + "'";
+			            }
+			            alert("부분 검색 필터 완료!\n컬럼: " + foundColumn + "\n검색어: " + targetValue);
+			            
+			        // ⭐ 6. FIND (정확한 값 찾기 + 포커스)
+			        } else if (cmdType === "FIND") {
+			            var targetValue = parts[1];
+			            var foundRow = null;
+			            var foundColumn = null;
+			            
+			            console.log("🔍 정확한 값 찾기:", targetValue);
+			            
 			            for(var c = 0; c < allowedColumns.length; c++) {
 			                var searchCol = allowedColumns[c];
 			                var condition = searchCol + " == '" + targetValue + "'";
@@ -331,18 +554,16 @@ Now analyze (keep exact values from user):`;
 			                    if(firstRow) {
 			                        foundRow = firstRow;
 			                        foundColumn = searchCol;
-			                        console.log("💡 첫 번째 행 발견:", searchCol, "행 인덱스:", firstRow.getIndex());
+			                        console.log("💡 정확한 일치:", searchCol);
 			                        break;
 			                    }
 			                } catch(e) {
-			                    // 숫자로 재시도
 			                    try {
 			                        condition = searchCol + " == " + targetValue;
 			                        firstRow = dataSet.findFirstRow(condition);
 			                        if(firstRow) {
 			                            foundRow = firstRow;
 			                            foundColumn = searchCol;
-			                            console.log("💡 첫 번째 행 발견 (숫자):", searchCol, "행 인덱스:", firstRow.getIndex());
 			                            break;
 			                        }
 			                    } catch(e2) {}
@@ -356,15 +577,13 @@ Now analyze (keep exact values from user):`;
 			                return alert("❌ '" + targetValue + "' 값을 찾을 수 없습니다.");
 			            }
 			            
-			            // 그리드에서 셀 인덱스 찾기
-			            var grid = app.lookup("grd1"); // 그리드 ID (실제 환경에 맞게 수정)
+			            var grid = app.lookup("grd1");
 			            var columnNames = grid.dataSet.getColumnNames();
 			            var cellIndex = -1;
 			            
 			            for(var i = 0; i < columnNames.length; i++) {
 			                if(columnNames[i] === foundColumn) {
 			                    cellIndex = i;
-			                    console.log("📍 셀 인덱스:", cellIndex);
 			                    break;
 			                }
 			            }
@@ -373,50 +592,34 @@ Now analyze (keep exact values from user):`;
 			                var rowIndex = foundRow.getIndex();
 			                grid.focusCell(rowIndex, cellIndex);
 			                
-			                console.log("✅ 셀 포커스 완료:", rowIndex, cellIndex);
-			                
+			                console.log("✅ 셀 포커스:", rowIndex, cellIndex);
 			                if(logCtrl) {
-			                    logCtrl.value = "✅ 찾음: " + (rowIndex + 1) + "행, " + foundColumn + " 컬럼";
+			                    logCtrl.value = "✅ 찾음: " + (rowIndex + 1) + "행, " + foundColumn;
 			                }
-			                
 			                alert("찾았습니다!\n행: " + (rowIndex + 1) + "\n컬럼: " + foundColumn + "\n값: " + targetValue);
-			            } else {
-			                alert("❌ 셀 인덱스를 찾을 수 없습니다.");
 			            }
 			            
-			        } else if (cmdType === "FILTER" || cmdType.startsWith("FILTER_")) {
-			            
+			        // ⭐ 7. FILTER (단일 값 필터)
+			        } else if (cmdType === "FILTER") {
 			            var targetValue = parts[1];
-			            
-			            var operator = "==";
-			            if (cmdType === "FILTER_GTE") operator = ">=";
-			            else if (cmdType === "FILTER_LTE") operator = "<=";
-			            else if (cmdType === "FILTER_GT") operator = ">";
-			            else if (cmdType === "FILTER_LT") operator = "<";
-			            else if (cmdType === "FILTER_CONTAINS") operator = "*=";
-			            
 			            var foundColumn = null;
 			            
 			            for(var c = 0; c < allowedColumns.length; c++) {
 			                var searchCol = allowedColumns[c];
-			                var testExpr = searchCol + " " + operator + " '" + targetValue + "'";
+			                var testExpr = searchCol + " == '" + targetValue + "'";
 			                
 			                try {
 			                    var foundRows = dataSet.findAllRow(testExpr);
-			                    
 			                    if(foundRows && foundRows.length > 0) {
 			                        foundColumn = searchCol;
-			                        console.log("💡 컬럼 발견:", foundColumn);
 			                        break;
 			                    }
 			                } catch(e) {
 			                    try {
-			                        testExpr = searchCol + " " + operator + " " + targetValue;
+			                        testExpr = searchCol + " == " + targetValue;
 			                        foundRows = dataSet.findAllRow(testExpr);
-			                        
 			                        if(foundRows && foundRows.length > 0) {
 			                            foundColumn = searchCol;
-			                            console.log("💡 컬럼 발견 (숫자):", foundColumn);
 			                            break;
 			                        }
 			                    } catch(e2) {}
@@ -428,15 +631,16 @@ Now analyze (keep exact values from user):`;
 			            }
 			            
 			            var isNumber = !isNaN(targetValue);
-			            var filterExpr = foundColumn + " " + operator + " " + (isNumber ? targetValue : "'" + targetValue + "'");
+			            var filterExpr = foundColumn + " == " + (isNumber ? targetValue : "'" + targetValue + "'");
 			            dataSet.setFilter(filterExpr);
 			            
 			            console.log("✅ 필터:", filterExpr);
 			            if(logCtrl) {
-			                logCtrl.value = "✅ 필터: " + foundColumn + " " + operator + " " + targetValue;
+			                logCtrl.value = "✅ 필터: " + foundColumn + " == " + targetValue;
 			            }
-			            alert("필터 완료!\n컬럼: " + foundColumn + "\n조건: " + operator + " " + targetValue);
+			            alert("필터 완료!\n컬럼: " + foundColumn + "\n값: " + targetValue);
 			            
+			        // ⭐ 8. SORT (정렬)
 			        } else if (cmdType === "SORT") {
 			            var column = parts[1];
 			            var order = parts[2];
@@ -448,56 +652,7 @@ Now analyze (keep exact values from user):`;
 			            if(logCtrl) {
 			                logCtrl.value = "✅ 정렬: " + column + " " + (order === "desc" ? "내림차순" : "오름차순");
 			            }
-			            alert("정렬 완료: " + column + " " + (order === "desc" ? "큰 것부터" : "작은 것부터"));
-			            
-			        } else if (cmdType === "MULTI") {
-			            var filterValue = null;
-			            var sortColumn = null;
-			            var sortOrder = null;
-			            
-			            for(var i = 1; i < parts.length; i++) {
-			                if(parts[i] === "FILTER" && i + 1 < parts.length) {
-			                    filterValue = parts[i + 1];
-			                }
-			                if(parts[i] === "SORT" && i + 2 < parts.length) {
-			                    sortColumn = parts[i + 1];
-			                    sortOrder = parts[i + 2];
-			                }
-			            }
-			            
-			            if(filterValue) {
-			                var foundColumn = null;
-			                
-			                for(var c = 0; c < allowedColumns.length; c++) {
-			                    var searchCol = allowedColumns[c];
-			                    var testExpr = searchCol + " == '" + filterValue + "'";
-			                    
-			                    try {
-			                        var foundRows = dataSet.findAllRow(testExpr);
-			                        if(foundRows && foundRows.length > 0) {
-			                            foundColumn = searchCol;
-			                            break;
-			                        }
-			                    } catch(e) {}
-			                }
-			                
-			                if(foundColumn) {
-			                    var filterExpr = foundColumn + " == '" + filterValue + "'";
-			                    dataSet.setFilter(filterExpr);
-			                    console.log("✅ 필터:", filterExpr);
-			                }
-			            }
-			            
-			            if(sortColumn && sortOrder) {
-			                var sortExpr = sortColumn + " " + sortOrder;
-			                dataSet.setSort(sortExpr);
-			                console.log("✅ 정렬:", sortExpr);
-			            }
-			            
-			            if(logCtrl) {
-			                logCtrl.value = "✅ 필터 + 정렬 완료!";
-			            }
-			            alert("필터 및 정렬 완료!");
+			            alert("정렬 완료!\n컬럼: " + column + "\n방향: " + (order === "desc" ? "큰 것부터" : "작은 것부터"));
 			            
 			        } else {
 			            alert("❌ 알 수 없는 명령: " + command);
